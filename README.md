@@ -19,8 +19,4 @@ Le Student ou User représente l’acteur central de la plateforme EduChallenge.
 Administrator
 
 L’Administrator incarne l’acteur responsable de la supervision globale de la plateforme. Son rôle s’inscrit dans une vision de gestion et de régulation du système afin de maintenir un environnement sain, sécurisé et fonctionnel pour l’ensemble des utilisateurs. L’administrateur veille au bon fonctionnement de l’écosystème numérique, à la qualité du contenu et au respect des règles de la communauté. Il représente l’entité qui garantit la stabilité, la fiabilité et la cohérence de la plateforme dans son ensemble.
-                API Gateway
-                     │
- ┌───────────────┬───────────────┬───────────────┬───────────────┐
- User Service    Challenge       Leaderboard     Notification
-                 Service         Service         Service
+         

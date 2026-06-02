@@ -1,0 +1,8 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< com.educhallenge:backend >----------------------
+[INFO] Building  0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.5.14-SNAPSHOT:run (default-cli) > test-compile @ backend >>>

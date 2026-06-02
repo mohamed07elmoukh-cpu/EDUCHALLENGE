@@ -1,0 +1,5 @@
+target
+*.log
+*.out
+*.err
+.git

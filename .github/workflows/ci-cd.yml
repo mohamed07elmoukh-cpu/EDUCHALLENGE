@@ -10,10 +10,24 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/educhallenge-backend:${{ github.sha }}
-  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/educhallenge-frontend:${{ github.sha }}
 
 jobs:
+  image-meta:
+    runs-on: ubuntu-latest
+    outputs:
+      owner: ${{ steps.meta.outputs.owner }}
+      backend_image: ${{ steps.meta.outputs.backend_image }}
+      frontend_image: ${{ steps.meta.outputs.frontend_image }}
+    steps:
+      - name: Prepare image metadata
+        id: meta
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+          echo "backend_image=ghcr.io/$owner/educhallenge-backend:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=ghcr.io/$owner/educhallenge-frontend:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
   backend-test:
     runs-on: ubuntu-latest
     defaults:
@@ -60,6 +74,7 @@ jobs:
   docker-images:
     if: github.event_name == 'push'
     needs:
+      - image-meta
       - backend-test
       - frontend-build
     runs-on: ubuntu-latest
@@ -84,8 +99,8 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           tags: |
-            ${{ env.BACKEND_IMAGE }}
-            ghcr.io/${{ github.repository_owner }}/educhallenge-backend:latest
+            ${{ needs.image-meta.outputs.backend_image }}
+            ghcr.io/${{ needs.image-meta.outputs.owner }}/educhallenge-backend:latest
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -96,12 +111,13 @@ jobs:
             VITE_API_BASE_URL=/api
           push: true
           tags: |
-            ${{ env.FRONTEND_IMAGE }}
-            ghcr.io/${{ github.repository_owner }}/educhallenge-frontend:latest
+            ${{ needs.image-meta.outputs.frontend_image }}
+            ghcr.io/${{ needs.image-meta.outputs.owner }}/educhallenge-frontend:latest
 
   deploy:
     if: github.event_name == 'push'
     needs:
+      - image-meta
       - docker-images
     runs-on: ubuntu-latest
     steps:
@@ -138,8 +154,8 @@ jobs:
 
       - name: Update application images
         run: |
-          kubectl -n educhallenge set image deployment/backend backend=${{ env.BACKEND_IMAGE }}
-          kubectl -n educhallenge set image deployment/frontend frontend=${{ env.FRONTEND_IMAGE }}
+          kubectl -n educhallenge set image deployment/backend backend=${{ needs.image-meta.outputs.backend_image }}
+          kubectl -n educhallenge set image deployment/frontend frontend=${{ needs.image-meta.outputs.frontend_image }}
 
       - name: Wait for rollout
         run: |

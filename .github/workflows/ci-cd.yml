@@ -122,6 +122,9 @@ jobs:
       - image-meta
       - docker-images
     runs-on: [self-hosted, Windows, X64]
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -133,17 +136,14 @@ jobs:
 
       - name: Configure kubeconfig
         run: |
-          mkdir -p "$HOME/.kube"
-          echo "${{ secrets.KUBE_CONFIG_B64 }}" | base64 -d > "$HOME/.kube/config"
+          New-Item -ItemType Directory -Force -Path "$HOME/.kube" | Out-Null
+          $kubeConfigBytes = [Convert]::FromBase64String("${{ secrets.KUBE_CONFIG_B64 }}")
+          [IO.File]::WriteAllBytes("$HOME/.kube/config", $kubeConfigBytes)
 
       - name: Create or update secrets
         run: |
           kubectl apply -f k8s/namespace.yaml
-          kubectl -n educhallenge create secret generic educhallenge-secrets \
-            --from-literal=POSTGRES_DB=${{ secrets.POSTGRES_DB }} \
-            --from-literal=POSTGRES_USER=${{ secrets.POSTGRES_USER }} \
-            --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} \
-            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n educhallenge create secret generic educhallenge-secrets --from-literal=POSTGRES_DB=${{ secrets.POSTGRES_DB }} --from-literal=POSTGRES_USER=${{ secrets.POSTGRES_USER }} --from-literal=POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }} --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply manifests
         run: |

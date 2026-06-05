@@ -12,6 +12,7 @@ function ChallengeDetailsPage() {
   const [challenge, setChallenge] = useState(null)
   const [loadingState, setLoadingState] = useState('loading')
   const [selectedAnswers, setSelectedAnswers] = useState({})
+  const [activeQuestionId, setActiveQuestionId] = useState(null)
   const [submitState, setSubmitState] = useState('idle')
   const [submitError, setSubmitError] = useState('')
   const [attemptResult, setAttemptResult] = useState(null)
@@ -42,6 +43,7 @@ function ChallengeDetailsPage() {
 
   useEffect(() => {
     setSelectedAnswers({})
+    setActiveQuestionId(null)
     setSubmitState('idle')
     setSubmitError('')
     setAttemptResult(null)
@@ -50,10 +52,67 @@ function ChallengeDetailsPage() {
   const questions = Array.isArray(challenge?.questions) ? challenge.questions : []
   const hasQuestions = questions.length > 0
   const allQuestionsAnswered = hasQuestions && questions.every((question) => selectedAnswers[String(question.id)])
+  const orderedQuestionIds = questions.map((question) => String(question.id))
   const answerResultsByStepId = useMemo(
     () => new Map((attemptResult?.answers || []).map((answer) => [String(answer.stepId), answer])),
     [attemptResult],
   )
+
+  useEffect(() => {
+    if (!hasQuestions) {
+      setActiveQuestionId(null)
+      return
+    }
+
+    setActiveQuestionId((current) => {
+      if (current && orderedQuestionIds.includes(String(current))) {
+        return String(current)
+      }
+
+      return orderedQuestionIds[0]
+    })
+  }, [hasQuestions, orderedQuestionIds])
+
+  useEffect(() => {
+    if (!hasQuestions || submitState === 'submitting' || attemptResult) {
+      return undefined
+    }
+
+    function handleKeyboardSelection(event) {
+      const pressedNumber = Number(event.key)
+
+      if (event.key === 'Enter' && allQuestionsAnswered) {
+        event.preventDefault()
+        handleSubmitAttempt()
+        return
+      }
+
+      if (!Number.isInteger(pressedNumber) || pressedNumber < 1 || pressedNumber > 9) {
+        return
+      }
+
+      const targetQuestion = questions.find((question) => String(question.id) === String(activeQuestionId))
+
+      if (!targetQuestion) {
+        return
+      }
+
+      const targetOption = targetQuestion.options?.[pressedNumber - 1]
+
+      if (!targetOption) {
+        return
+      }
+
+      event.preventDefault()
+      handleSelectAnswer(targetQuestion.id, targetOption.id)
+    }
+
+    window.addEventListener('keydown', handleKeyboardSelection)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyboardSelection)
+    }
+  }, [activeQuestionId, allQuestionsAnswered, attemptResult, hasQuestions, questions, submitState])
 
   async function handleSubmitAttempt() {
     if (!challenge || !hasQuestions) {
@@ -92,18 +151,39 @@ function ChallengeDetailsPage() {
       return
     }
 
-    setSelectedAnswers((current) => ({
-      ...current,
-      [String(questionId)]: String(optionId),
-    }))
+    setSelectedAnswers((current) => {
+      const nextAnswers = {
+        ...current,
+        [String(questionId)]: String(optionId),
+      }
+
+      setActiveQuestionId(resolveNextQuestionId(questionId, nextAnswers))
+      return nextAnswers
+    })
     setSubmitError('')
   }
 
   function handleRetryAttempt() {
     setSelectedAnswers({})
+    setActiveQuestionId(orderedQuestionIds[0] || null)
     setSubmitState('idle')
     setSubmitError('')
     setAttemptResult(null)
+  }
+
+  function resolveNextQuestionId(currentQuestionId, nextAnswers) {
+    const currentIndex = orderedQuestionIds.findIndex((questionId) => questionId === String(currentQuestionId))
+    const nextQuestionAfterCurrent = orderedQuestionIds
+      .slice(currentIndex + 1)
+      .find((questionId) => !nextAnswers[questionId])
+
+    if (nextQuestionAfterCurrent) {
+      return nextQuestionAfterCurrent
+    }
+
+    const firstUnansweredQuestion = orderedQuestionIds.find((questionId) => !nextAnswers[questionId])
+
+    return firstUnansweredQuestion || String(currentQuestionId)
   }
 
   if (loadingState === 'loading' && !challenge) {
@@ -187,12 +267,25 @@ function ChallengeDetailsPage() {
         <div className="details-question-list">
           {hasQuestions ? (
             questions.map((question, index) => (
-              <article className="surface-card details-question-card" key={question.id || `question-${index}`}>
+              <article
+                className={[
+                  'surface-card',
+                  'details-question-card',
+                  String(activeQuestionId) === String(question.id) ? 'active' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                key={question.id || `question-${index}`}
+                onClick={() => setActiveQuestionId(String(question.id))}
+              >
                 <div className="details-question-header">
                   <div>
                     <strong>Question {question.stepOrder || index + 1}</strong>
                     <p className="muted-caption">{question.points || 1} point(s)</p>
                   </div>
+                  {!attemptResult && String(activeQuestionId) === String(question.id) && (
+                    <span className="details-active-chip">Keyboard active</span>
+                  )}
                 </div>
 
                 <p className="details-question-text">{question.questionText}</p>
@@ -222,6 +315,9 @@ function ChallengeDetailsPage() {
                       >
                         <span className="details-option-marker">{String.fromCharCode(65 + optionIndex)}</span>
                         <span className="details-option-content">{option.optionText}</span>
+                        {!answerResult && optionIndex < 9 && (
+                          <span className="details-option-shortcut">PRESS {optionIndex + 1}</span>
+                        )}
                         {answerResult && isCorrectOption && <span className="pill easy">Correct</span>}
                         {answerResult && isWrongSelected && <span className="pill hard">Your answer</span>}
                       </button>
@@ -307,7 +403,7 @@ function ChallengeDetailsPage() {
         )}
         {hasQuestions && !attemptResult && (
           <p className="challenge-play-hint">
-            {Object.keys(selectedAnswers).length}/{questions.length} question(s) answered.
+            {Object.keys(selectedAnswers).length}/{questions.length} question(s) answered. Use keys 1-9 for the active question, then press Enter to submit.
           </p>
         )}
       </article>

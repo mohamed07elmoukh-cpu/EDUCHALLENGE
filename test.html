@@ -1,1 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LLM Quiz Demo</title>
+    <style>
+      :root {
+        --bg: #f6f7fb;
+        --surface: #ffffff;
+        --surface-soft: #f1f3f8;
+        --border: #dde2ef;
+        --text: #172033;
+        --muted: #667085;
+        --accent: #1d4ed8;
+        --accent-soft: rgba(29, 78, 216, 0.1);
+        --shadow: 0 18px 40px rgba(17, 24, 39, 0.08);
+        --radius: 18px;
+      }
 
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 2rem;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: linear-gradient(180deg, #fbfcff 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      .quiz-shell {
+        width: min(980px, 100%);
+        margin: 0 auto;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .quiz-header {
+        padding: 2rem 2rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .quiz-header p {
+        margin: 0 0 1rem;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .quiz-header h1 {
+        margin: 0;
+        font-size: clamp(1.5rem, 4vw, 2.2rem);
+        line-height: 1.2;
+      }
+
+      .quiz-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 2rem;
+        background: #f8f9fd;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .quiz-toolbar strong {
+        display: block;
+        margin-bottom: 0.15rem;
+      }
+
+      .quiz-toolbar p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .quiz-points {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 82px;
+        padding: 0.65rem 0.9rem;
+        border-radius: 999px;
+        background: #ffe45b;
+        font-weight: 800;
+      }
+
+      .quiz-body {
+        padding: 2rem;
+      }
+
+      .quiz-body h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.95rem;
+      }
+
+      .quiz-body > p {
+        margin: 0 0 1.5rem;
+        color: var(--muted);
+      }
+
+      .answers {
+        display: grid;
+        gap: 0.85rem;
+      }
+
+      .answer {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+      }
+
+      .answer:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px rgba(17, 24, 39, 0.05);
+      }
+
+      .answer.is-selected {
+        border-color: var(--accent);
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        box-shadow: 0 14px 28px rgba(29, 78, 216, 0.08);
+      }
+
+      .answer input {
+        width: 24px;
+        height: 24px;
+        accent-color: var(--accent);
+      }
+
+      .answer-label {
+        font-size: 1.05rem;
+        line-height: 1.5;
+      }
+
+      .answer-key {
+        border: 0;
+        border-radius: 12px;
+        background: var(--surface-soft);
+        color: var(--text);
+        padding: 0.7rem 0.95rem;
+        min-width: 96px;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        transition: background-color 160ms ease, color 160ms ease;
+      }
+
+      .answer.is-selected .answer-key {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+
+      .quiz-help {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1.25rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+      }
+
+      .quiz-help strong {
+        color: var(--text);
+      }
+
+      @media (max-width: 720px) {
+        body {
+          padding: 1rem;
+        }
+
+        .quiz-header,
+        .quiz-toolbar,
+        .quiz-body {
+          padding-left: 1.15rem;
+          padding-right: 1.15rem;
+        }
+
+        .quiz-toolbar,
+        .quiz-help,
+        .answer {
+          grid-template-columns: 1fr;
+          align-items: start;
+        }
+
+        .answer {
+          gap: 0.75rem;
+        }
+
+        .answer-key {
+          min-width: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="quiz-shell">
+      <header class="quiz-header">
+        <p>
+          Use the interactive application to explore each capability and discover
+          which ones truly apply to LLMs.
+        </p>
+        <h1>Which of these options apply to LLMs? Select the three answers that apply.</h1>
+      </header>
+
+      <div class="quiz-toolbar">
+        <div>
+          <strong>Answer the question</strong>
+          <p>Use your mouse or press keys 1, 2, 3, and 4.</p>
+        </div>
+        <span class="quiz-points">50XP</span>
+      </div>
+
+      <div class="quiz-body">
+        <h2>Possible Answers</h2>
+        <p>Select all correct answers</p>
+
+        <div class="answers">
+          <label class="answer" data-key="1">
+            <input type="checkbox" />
+            <span class="answer-label">Designed to understand and generate language</span>
+            <button class="answer-key" type="button">PRESS 1</button>
+          </label>
+
+          <label class="answer" data-key="2">
+            <input type="checkbox" />
+            <span class="answer-label">Perform tasks such as playing chess or driving a car</span>
+            <button class="answer-key" type="button">PRESS 2</button>
+          </label>
+
+          <label class="answer" data-key="3">
+            <input type="checkbox" />
+            <span class="answer-label">Trained on vast amounts of text data</span>
+            <button class="answer-key" type="button">PRESS 3</button>
+          </label>
+
+          <label class="answer" data-key="4">
+            <input type="checkbox" />
+            <span class="answer-label">
+              Perform tasks such as text summarization, sentiment analysis, and text generation
+            </span>
+            <button class="answer-key" type="button">PRESS 4</button>
+          </label>
+        </div>
+
+        <div class="quiz-help">
+          <span><strong>Keyboard shortcuts:</strong> press 1, 2, 3, or 4 to toggle an answer.</span>
+          <span id="selection-count">0 selected</span>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      const answers = Array.from(document.querySelectorAll('.answer'))
+      const selectionCount = document.getElementById('selection-count')
+
+      function refreshAnswerState(answer) {
+        const checkbox = answer.querySelector('input')
+        answer.classList.toggle('is-selected', checkbox.checked)
+      }
+
+      function refreshSelectionCount() {
+        const checkedCount = answers.filter((answer) => answer.querySelector('input').checked).length
+        selectionCount.textContent = `${checkedCount} selected`
+      }
+
+      function toggleAnswerByKey(key) {
+        const answer = document.querySelector(`.answer[data-key="${key}"]`)
+        if (!answer) {
+          return
+        }
+
+        const checkbox = answer.querySelector('input')
+        checkbox.checked = !checkbox.checked
+        refreshAnswerState(answer)
+        refreshSelectionCount()
+      }
+
+      answers.forEach((answer) => {
+        const checkbox = answer.querySelector('input')
+        const button = answer.querySelector('.answer-key')
+
+        checkbox.addEventListener('change', () => {
+          refreshAnswerState(answer)
+          refreshSelectionCount()
+        })
+
+        button.addEventListener('click', (event) => {
+          event.preventDefault()
+          toggleAnswerByKey(answer.dataset.key)
+        })
+      })
+
+      document.addEventListener('keydown', (event) => {
+        if (['1', '2', '3', '4'].includes(event.key)) {
+          event.preventDefault()
+          toggleAnswerByKey(event.key)
+        }
+      })
+
+      refreshSelectionCount()
+    </script>
+  </body>
+</html>

@@ -70,12 +70,15 @@ button {
 
 .app-shell {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .page-shell {
   width: min(1160px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 2rem 0 4rem;
+  padding: 2rem 0 2.25rem;
+  flex: 1;
 }
 
 .section {
@@ -1992,6 +1995,11 @@ button {
   gap: 1rem;
 }
 
+.details-question-card.active {
+  border-color: rgba(255, 122, 0, 0.28);
+  box-shadow: 0 18px 36px rgba(255, 122, 0, 0.08);
+}
+
 .question-card-header,
 .details-question-header {
   display: flex;
@@ -2052,6 +2060,19 @@ button {
 .details-question-text {
   margin: 0;
   line-height: 1.7;
+}
+
+.details-active-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 122, 0, 0.12);
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .details-option-item {
@@ -2132,6 +2153,21 @@ button {
 .details-option-content {
   min-width: 0;
   line-height: 1.55;
+}
+
+.details-option-shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 84px;
+  padding: 0.5rem 0.8rem;
+  border-radius: 12px;
+  background: #f4f5fb;
+  color: #1e3a5f;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .attempt-result-banner {
@@ -2359,28 +2395,174 @@ button {
 
 .site-footer {
   border-top: 1px solid rgba(24, 33, 47, 0.08);
-  background: rgba(255, 255, 255, 0.72);
+  background:
+    radial-gradient(circle at top right, rgba(255, 122, 0, 0.08), transparent 22%),
+    linear-gradient(180deg, #fff8f4 0%, #fff3ea 100%);
 }
 
 .site-footer-inner {
   width: min(1160px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 2rem 0;
+  padding: 1.35rem 0 1rem;
   display: grid;
   grid-template-columns: 1.2fr 0.8fr 0.8fr;
-  gap: 1.2rem;
+  gap: 1.15rem;
+}
+
+.footer-brand-column,
+.footer-column {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  justify-self: start;
+}
+
+.footer-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+}
+
+.footer-brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.footer-brand-title {
+  display: inline-flex;
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.footer-brand-title-edu {
+  color: var(--accent);
+}
+
+.footer-brand-title-challenge {
+  color: #1d4ed8;
 }
 
 .footer-title {
-  margin: 0 0 0.7rem;
+  margin: 0;
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
+  color: var(--text);
 }
 
 .footer-copy,
 .footer-link {
   color: var(--muted);
-  line-height: 1.8;
+  line-height: 1.7;
+}
+
+.footer-copy {
+  margin: 0;
+  max-width: 32rem;
+  font-size: 0.95rem;
+}
+
+.footer-cta-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem 1rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(255, 122, 0, 0.1);
+}
+
+.footer-cta-link {
+  min-height: 40px;
+  padding: 0.65rem 1rem;
+  box-shadow: none;
+}
+
+.footer-cta-title,
+.footer-cta-text {
+  margin: 0;
+}
+
+.footer-cta-title {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.footer-cta-text {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.footer-socials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.footer-social-link {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(24, 33, 47, 0.08);
+  color: var(--muted);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.footer-social-link:hover {
+  transform: translateY(-2px);
+  color: var(--accent-strong);
+  border-color: rgba(255, 122, 0, 0.2);
+  box-shadow: var(--shadow-soft);
+}
+
+.site-footer-bottom {
+  border-top: 1px solid rgba(24, 33, 47, 0.08);
+  background: linear-gradient(180deg, rgba(36, 48, 66, 0.95) 0%, rgba(26, 36, 50, 0.98) 100%);
+}
+
+.site-footer-bottom-inner {
+  width: min(1160px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 0.8rem 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.site-footer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.footer-copyright,
+.footer-copyright-note {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 .admin-page-shell {
@@ -2420,6 +2602,22 @@ button {
 .admin-attempt-list {
   display: grid;
   gap: 1rem;
+}
+
+.admin-filters-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+}
+
+.admin-results-caption {
+  margin: 0;
+}
+
+.admin-filters-bar {
+  grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(140px, 0.7fr));
+  margin-bottom: 0;
 }
 
 .admin-form-split {
@@ -2538,11 +2736,31 @@ button {
 
 .footer-links {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.45rem;
 }
 
 .footer-link:hover {
   color: var(--accent-strong);
+}
+
+.footer-policy-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.footer-policy-link {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.88rem;
+}
+
+.footer-policy-link:hover {
+  color: #fff;
+}
+
+.footer-policy-separator {
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .not-found {
@@ -2585,6 +2803,15 @@ button {
   .admin-layout-grid,
   .site-footer-inner {
     grid-template-columns: 1fr;
+  }
+
+  .site-footer-bottom-inner {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .site-footer-meta {
+    justify-content: flex-start;
   }
 
   .section-grid {
@@ -2697,6 +2924,12 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .admin-filters-header,
+  .admin-subpanel-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
   .recent-item,
   .history-item {
     align-items: start;
@@ -2727,6 +2960,10 @@ button {
   .login-stats-bar,
   .home-spotlight-footer {
     flex-direction: column;
+    align-items: start;
+  }
+
+  .footer-cta-inline {
     align-items: start;
   }
 

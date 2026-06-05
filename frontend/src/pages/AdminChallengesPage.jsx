@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChartIcon, RocketIcon, TargetIcon, TrophyIcon, UsersIcon } from '../components/Icons'
+import { ChartIcon, RocketIcon, SearchIcon, TargetIcon, TrophyIcon, UsersIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
 import {
   addAdminChallengeStep,
@@ -13,6 +13,13 @@ import {
 } from '../services/adminChallenges'
 
 const difficultyOptions = ['EASY', 'MEDIUM', 'HARD']
+const adminDifficultyFilters = ['ALL', ...difficultyOptions]
+const adminStatusFilters = ['ALL', 'ACTIVE', 'INACTIVE']
+const adminSortOptions = [
+  { value: 'newest', label: 'Newest' },
+  { value: 'most-attempted', label: 'Most attempted' },
+  { value: 'highest-score', label: 'Highest score' },
+]
 
 function createEmptyOption(isCorrect = false) {
   return {
@@ -72,6 +79,11 @@ function AdminChallengesPage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('ALL')
+  const [difficultyFilter, setDifficultyFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [sortBy, setSortBy] = useState('newest')
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -93,6 +105,68 @@ function AdminChallengesPage() {
 
     return { totalChallenges, totalAttempts, totalParticipants, activeChallenges }
   }, [challenges])
+
+  const categoryFilters = useMemo(() => {
+    const uniqueCategories = Array.from(
+      new Set(
+        challenges
+          .map((challenge) => challenge.category)
+          .filter((category) => typeof category === 'string' && category.trim().length > 0),
+      ),
+    ).sort((left, right) => left.localeCompare(right))
+
+    return ['ALL', ...uniqueCategories]
+  }, [challenges])
+
+  const filteredChallenges = useMemo(() => {
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase()
+
+    const nextChallenges = challenges.filter((challenge) => {
+      const titleMatches =
+        normalizedSearchTerm.length === 0 ||
+        String(challenge.title || '')
+          .toLowerCase()
+          .includes(normalizedSearchTerm)
+
+      const categoryMatches = categoryFilter === 'ALL' || challenge.category === categoryFilter
+      const difficultyMatches = difficultyFilter === 'ALL' || challenge.difficulty === difficultyFilter
+      const statusMatches =
+        statusFilter === 'ALL' ||
+        (statusFilter === 'ACTIVE' ? Boolean(challenge.isActive) : !challenge.isActive)
+
+      return titleMatches && categoryMatches && difficultyMatches && statusMatches
+    })
+
+    nextChallenges.sort((left, right) => {
+      if (sortBy === 'most-attempted') {
+        return (
+          Number(right.totalAttempts || 0) - Number(left.totalAttempts || 0) ||
+          new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime()
+        )
+      }
+
+      if (sortBy === 'highest-score') {
+        return (
+          Number(right.averageScore || 0) - Number(left.averageScore || 0) ||
+          Number(right.totalAttempts || 0) - Number(left.totalAttempts || 0)
+        )
+      }
+
+      return new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime()
+    })
+
+    return nextChallenges
+  }, [categoryFilter, challenges, difficultyFilter, searchTerm, sortBy, statusFilter])
+
+  const hasActiveFilters = useMemo(
+    () =>
+      searchTerm.trim().length > 0 ||
+      categoryFilter !== 'ALL' ||
+      difficultyFilter !== 'ALL' ||
+      statusFilter !== 'ALL' ||
+      sortBy !== 'newest',
+    [categoryFilter, difficultyFilter, searchTerm, sortBy, statusFilter],
+  )
 
   useEffect(() => {
     if (!isAuthenticated || !isAdmin || !user) {
@@ -189,6 +263,25 @@ function AdminChallengesPage() {
       active = false
     }
   }, [isAdmin, selectedChallengeId, user])
+
+  useEffect(() => {
+    if (!isAuthenticated || !isAdmin) {
+      return
+    }
+
+    if (filteredChallenges.length === 0) {
+      setSelectedChallengeId(null)
+      return
+    }
+
+    setSelectedChallengeId((current) => {
+      if (current && filteredChallenges.some((challenge) => challenge.id === current)) {
+        return current
+      }
+
+      return filteredChallenges[0].id
+    })
+  }, [filteredChallenges, isAdmin, isAuthenticated])
 
   const handleMetaChange = (event) => {
     const { name, value } = event.target
@@ -354,6 +447,14 @@ function AdminChallengesPage() {
       questions: [createEmptyQuestion()],
     })
     setFormErrors({})
+  }
+
+  const resetFilters = () => {
+    setSearchTerm('')
+    setCategoryFilter('ALL')
+    setDifficultyFilter('ALL')
+    setStatusFilter('ALL')
+    setSortBy('newest')
   }
 
   const refreshAll = async (preferredChallengeId = null) => {
@@ -724,13 +825,90 @@ function AdminChallengesPage() {
               </div>
             </div>
 
+            <div className="admin-filters-header">
+              <p className="muted-caption admin-results-caption">
+                Showing {filteredChallenges.length} of {challenges.length} challenges
+              </p>
+              {hasActiveFilters && (
+                <button className="button-ghost button-reset" type="button" onClick={resetFilters}>
+                  Reset filters
+                </button>
+              )}
+            </div>
+
+            <div className="filters-bar admin-filters-bar">
+              <div className="input-wrap">
+                <span className="input-icon">
+                  <SearchIcon />
+                </span>
+                <input
+                  className="search-input"
+                  type="search"
+                  placeholder="Search by title"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                />
+              </div>
+
+              <select
+                className="select-input"
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+              >
+                {categoryFilters.map((option) => (
+                  <option key={option} value={option}>
+                    {option === 'ALL' ? 'All categories' : option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="select-input"
+                value={difficultyFilter}
+                onChange={(event) => setDifficultyFilter(event.target.value)}
+              >
+                {adminDifficultyFilters.map((option) => (
+                  <option key={option} value={option}>
+                    {option === 'ALL' ? 'All difficulties' : option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="select-input"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                {adminStatusFilters.map((option) => (
+                  <option key={option} value={option}>
+                    {option === 'ALL' ? 'All statuses' : option}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="select-input"
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+              >
+                {adminSortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    Sort: {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {listState === 'loading' && <div className="empty-state">Loading admin challenges...</div>}
             {listState !== 'loading' && challenges.length === 0 && (
               <div className="empty-state">No challenges yet. Use the builder to create the first one.</div>
             )}
+            {listState !== 'loading' && challenges.length > 0 && filteredChallenges.length === 0 && (
+              <div className="empty-state">No challenges match the current search and filters.</div>
+            )}
 
             <div className="admin-challenge-list">
-              {challenges.map((challenge) => (
+              {filteredChallenges.map((challenge) => (
                 <button
                   key={challenge.id}
                   className={`admin-challenge-list-item ${selectedChallengeId === challenge.id ? 'is-selected' : ''}`}

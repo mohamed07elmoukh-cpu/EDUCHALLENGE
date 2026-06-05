@@ -3,11 +3,26 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { CloseIcon, MenuIcon } from './Icons'
 
-const publicLinks = [
+const guestLinks = [
+  { to: '/', label: 'Home' },
+  { to: '/challenges', label: 'Challenges' },
+  { to: '/leaderboard', label: 'Leaderboard' },
+]
+
+const userLinks = [
   { to: '/', label: 'Home' },
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/challenges', label: 'Challenges' },
+  { to: '/my-challenges', label: 'My Challenges' },
   { to: '/leaderboard', label: 'Leaderboard' },
+  { to: '/profile', label: 'Profile' },
+]
+
+const adminLinks = [
+  { to: '/', label: 'Home' },
+  { to: '/challenges', label: 'Challenges' },
+  { to: '/leaderboard', label: 'Leaderboard' },
+  { to: '/admin/challenges', label: 'Admin Panel' },
   { to: '/profile', label: 'Profile' },
 ]
 
@@ -17,20 +32,10 @@ function Navbar() {
   const { isAuthenticated, isAdmin, logout } = useAuth()
   const links = useMemo(() => {
     if (!isAuthenticated) {
-      return publicLinks
+      return guestLinks
     }
 
-    const authenticatedLinks = [
-      ...publicLinks.slice(0, 3),
-      { to: '/my-challenges', label: 'My Challenges' },
-      ...publicLinks.slice(3),
-    ]
-
-    if (isAdmin) {
-      authenticatedLinks.splice(3, 0, { to: '/admin/challenges', label: 'Admin' })
-    }
-
-    return authenticatedLinks
+    return isAdmin ? adminLinks : userLinks
   }, [isAdmin, isAuthenticated])
 
   const closeMenu = () => setOpen(false)

@@ -144,8 +144,8 @@ function LoginPage() {
         password: formData.password,
       })
 
-      if (response?.user) {
-        login(response.user)
+      if (response?.user && response?.accessToken) {
+        login(response)
       }
 
       navigate('/dashboard', { replace: true })

@@ -3,11 +3,12 @@ package com.educhallenge.backend.security;
 import com.educhallenge.users.entity.User;
 import com.educhallenge.users.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -42,60 +43,28 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
 		}
 
-		Long userId = extractUserId(request);
+		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-		if (userId != null) {
-			return userRepository.findById(userId)
+		if (authentication == null
+				|| !authentication.isAuthenticated()
+				|| authentication instanceof AnonymousAuthenticationToken) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+		}
+
+		Object principal = authentication.getPrincipal();
+
+		if (principal instanceof AuthenticatedUserDetails authenticatedUserDetails) {
+			return userRepository.findById(authenticatedUserDetails.getUserId())
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
 		}
 
-		String email = request.getHeader("X-User-Email");
+		String username = authentication.getName();
 
-		if (StringUtils.hasText(email)) {
-			return userRepository.findByEmailIgnoreCase(email.trim())
+		if (username != null && !username.isBlank()) {
+			return userRepository.findByEmailIgnoreCase(username)
 					.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
 		}
 
-		throw new ResponseStatusException(
-				HttpStatus.UNAUTHORIZED,
-				"Authentication required. Provide X-User-Id, X-User-Email, or an authenticated session."
-		);
-	}
-
-	private Long extractUserId(HttpServletRequest request) {
-		HttpSession session = request.getSession(false);
-
-		if (session != null) {
-			Object sessionUserId = session.getAttribute("authenticatedUserId");
-			Long parsedSessionUserId = parseUserId(sessionUserId);
-
-			if (parsedSessionUserId != null) {
-				return parsedSessionUserId;
-			}
-		}
-
-		return parseUserId(request.getHeader("X-User-Id"));
-	}
-
-	private Long parseUserId(Object rawUserId) {
-		if (rawUserId == null) {
-			return null;
-		}
-
-		if (rawUserId instanceof Number number) {
-			return number.longValue();
-		}
-
-		String value = rawUserId.toString().trim();
-
-		if (!StringUtils.hasText(value)) {
-			return null;
-		}
-
-		try {
-			return Long.parseLong(value);
-		} catch (NumberFormatException exception) {
-			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid authenticated user identifier");
-		}
+		throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
 	}
 }

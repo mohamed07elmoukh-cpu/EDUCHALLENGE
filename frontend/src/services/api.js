@@ -7,10 +7,8 @@ export function buildAuthHeaders(user, { includeJson = false } = {}) {
     headers['Content-Type'] = 'application/json'
   }
 
-  if (user?.id) {
-    headers['X-User-Id'] = String(user.id)
-  } else if (user?.email) {
-    headers['X-User-Email'] = user.email
+  if (user?.accessToken) {
+    headers.Authorization = `${user.tokenType || 'Bearer'} ${user.accessToken}`
   }
 
   return headers

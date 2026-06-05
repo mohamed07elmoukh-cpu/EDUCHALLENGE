@@ -89,8 +89,12 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const persistAuthenticatedUser = (backendUser) => {
-    const nextUser = mapBackendUserToProfile(backendUser)
+  const persistAuthenticatedUser = (backendUser, authMetadata = {}) => {
+    const nextUser = {
+      ...mapBackendUserToProfile(backendUser),
+      accessToken: authMetadata.accessToken ?? backendUser?.accessToken ?? null,
+      tokenType: authMetadata.tokenType ?? backendUser?.tokenType ?? 'Bearer',
+    }
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser))
     window.localStorage.setItem(REGISTERED_USER_KEY, JSON.stringify(backendUser))
     setUser(nextUser)
@@ -102,12 +106,19 @@ export function AuthProvider({ children }) {
       user,
       isAuthenticated: Boolean(user),
       isAdmin: user?.role === 'ADMIN',
-      login(backendUserOrEmail) {
-        if (backendUserOrEmail && typeof backendUserOrEmail === 'object') {
-          return persistAuthenticatedUser(backendUserOrEmail)
+      login(backendUserOrAuthPayload) {
+        if (backendUserOrAuthPayload && typeof backendUserOrAuthPayload === 'object') {
+          if (backendUserOrAuthPayload.user) {
+            return persistAuthenticatedUser(backendUserOrAuthPayload.user, {
+              accessToken: backendUserOrAuthPayload.accessToken,
+              tokenType: backendUserOrAuthPayload.tokenType,
+            })
+          }
+
+          return persistAuthenticatedUser(backendUserOrAuthPayload)
         }
 
-        const email = backendUserOrEmail
+        const email = backendUserOrAuthPayload
         const rawRegisteredUser = window.localStorage.getItem(REGISTERED_USER_KEY)
         let nextUser = null
 

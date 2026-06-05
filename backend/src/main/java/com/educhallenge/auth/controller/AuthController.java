@@ -5,7 +5,6 @@ import com.educhallenge.auth.dto.LoginResponse;
 import com.educhallenge.auth.dto.RegisterRequest;
 import com.educhallenge.auth.dto.RegisterResponse;
 import com.educhallenge.auth.service.AuthService;
-import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,9 +24,8 @@ public class AuthController {
 	}
 
 	@PostMapping("/login")
-	public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpSession session) {
+	public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
 		LoginResponse response = authService.login(request);
-		session.setAttribute("authenticatedUserId", response.getUser().getId());
 		return ResponseEntity.ok(response);
 	}
 

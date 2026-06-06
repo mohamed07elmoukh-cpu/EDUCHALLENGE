@@ -10,6 +10,8 @@ public class RecentChallengeActivityResponse {
 	private Integer score;
 	private Integer maxScore;
 	private LocalDateTime completedAt;
+	private String status;
+	private Integer xpEarned;
 	private String outcomeLabel;
 
 	public RecentChallengeActivityResponse() {
@@ -22,6 +24,8 @@ public class RecentChallengeActivityResponse {
 			Integer score,
 			Integer maxScore,
 			LocalDateTime completedAt,
+			String status,
+			Integer xpEarned,
 			String outcomeLabel
 	) {
 		this.attemptId = attemptId;
@@ -30,6 +34,8 @@ public class RecentChallengeActivityResponse {
 		this.score = score;
 		this.maxScore = maxScore;
 		this.completedAt = completedAt;
+		this.status = status;
+		this.xpEarned = xpEarned;
 		this.outcomeLabel = outcomeLabel;
 	}
 
@@ -79,6 +85,22 @@ public class RecentChallengeActivityResponse {
 
 	public void setCompletedAt(LocalDateTime completedAt) {
 		this.completedAt = completedAt;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public Integer getXpEarned() {
+		return xpEarned;
+	}
+
+	public void setXpEarned(Integer xpEarned) {
+		this.xpEarned = xpEarned;
 	}
 
 	public String getOutcomeLabel() {

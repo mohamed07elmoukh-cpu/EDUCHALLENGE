@@ -3,18 +3,23 @@ import { Link } from 'react-router-dom'
 import { ChartIcon, RocketIcon, SearchIcon, TargetIcon, TrophyIcon, UsersIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
 import {
+  addAdminChallengeOption,
   addAdminChallengeStep,
   createAdminChallenge,
+  deleteAdminChallenge,
   fetchAdminChallengeAttempts,
   fetchAdminChallengeDetails,
   fetchAdminChallengeLeaderboard,
   fetchAdminChallengeStats,
   fetchAdminChallenges,
+  updateAdminChallenge,
+  updateAdminChallengeOption,
+  updateAdminChallengeStep,
 } from '../services/adminChallenges'
 
 const difficultyOptions = ['EASY', 'MEDIUM', 'HARD']
 const adminDifficultyFilters = ['ALL', ...difficultyOptions]
-const adminStatusFilters = ['ALL', 'ACTIVE', 'INACTIVE']
+const adminStatusFilters = ['ALL', 'ACTIVE', 'DELETED']
 const adminSortOptions = [
   { value: 'newest', label: 'Newest' },
   { value: 'most-attempted', label: 'Most attempted' },
@@ -23,6 +28,7 @@ const adminSortOptions = [
 
 function createEmptyOption(isCorrect = false) {
   return {
+    id: null,
     optionText: '',
     isCorrect,
   }
@@ -30,6 +36,7 @@ function createEmptyOption(isCorrect = false) {
 
 function createEmptyQuestion() {
   return {
+    id: null,
     questionText: '',
     points: 1,
     options: [createEmptyOption(true), createEmptyOption(false)],
@@ -66,6 +73,56 @@ function formatDuration(seconds) {
   return `${minutes}m ${remainingSeconds}s`
 }
 
+function getChallengeAdminState(challenge) {
+  if (!challenge) {
+    return 'UNKNOWN'
+  }
+
+  if (!challenge.isActive) {
+    return 'DELETED'
+  }
+
+  return 'ACTIVE'
+}
+
+function buildChallengePayload(source, overrides = {}) {
+  return {
+    title: String(overrides.title ?? source.title ?? '').trim(),
+    description: String(overrides.description ?? source.description ?? '').trim(),
+    category: String(overrides.category ?? source.category ?? '').trim(),
+    difficulty: overrides.difficulty ?? source.difficulty ?? 'MEDIUM',
+    pointsReward: Number(overrides.pointsReward ?? source.pointsReward ?? 0),
+    visibility: overrides.visibility ?? source.visibility ?? 'PUBLIC',
+    isActive: overrides.isActive ?? source.isActive ?? true,
+  }
+}
+
+function mapChallengeToFormData(challenge) {
+  return {
+    title: challenge?.title || '',
+    description: challenge?.description || '',
+    category: challenge?.category || '',
+    difficulty: challenge?.difficulty || 'MEDIUM',
+    pointsReward: Number(challenge?.pointsReward || 150),
+    questions:
+      Array.isArray(challenge?.questions) && challenge.questions.length > 0
+        ? challenge.questions.map((question) => ({
+            id: question.id ?? null,
+            questionText: question.questionText || '',
+            points: Number(question.points || 1),
+            options:
+              Array.isArray(question.options) && question.options.length > 0
+                ? question.options.map((option) => ({
+                    id: option.id ?? null,
+                    optionText: option.optionText || '',
+                    isCorrect: Boolean(option.isCorrect),
+                  }))
+                : [createEmptyOption(true), createEmptyOption(false)],
+          }))
+        : [createEmptyQuestion()],
+  }
+}
+
 function AdminChallengesPage() {
   const { user, isAuthenticated, isAdmin } = useAuth()
   const [challenges, setChallenges] = useState([])
@@ -78,7 +135,9 @@ function AdminChallengesPage() {
   const [detailsState, setDetailsState] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editingChallengeId, setEditingChallengeId] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [difficultyFilter, setDifficultyFilter] = useState('ALL')
@@ -130,9 +189,8 @@ function AdminChallengesPage() {
 
       const categoryMatches = categoryFilter === 'ALL' || challenge.category === categoryFilter
       const difficultyMatches = difficultyFilter === 'ALL' || challenge.difficulty === difficultyFilter
-      const statusMatches =
-        statusFilter === 'ALL' ||
-        (statusFilter === 'ACTIVE' ? Boolean(challenge.isActive) : !challenge.isActive)
+      const lifecycleState = getChallengeAdminState(challenge)
+      const statusMatches = statusFilter === 'ALL' || lifecycleState === statusFilter
 
       return titleMatches && categoryMatches && difficultyMatches && statusMatches
     })
@@ -167,6 +225,41 @@ function AdminChallengesPage() {
       sortBy !== 'newest',
     [categoryFilter, difficultyFilter, searchTerm, sortBy, statusFilter],
   )
+
+  async function loadChallengeInsights(challengeId, activeCheck = () => true) {
+    const [details, stats, attempts, leaderboard] = await Promise.all([
+      fetchAdminChallengeDetails(challengeId, user),
+      fetchAdminChallengeStats(challengeId, user),
+      fetchAdminChallengeAttempts(challengeId, user),
+      fetchAdminChallengeLeaderboard(challengeId, user),
+    ])
+
+    if (!activeCheck()) {
+      return
+    }
+
+    setSelectedChallenge(details)
+    setChallengeStats(stats)
+    setChallengeAttempts(attempts)
+    setChallengeLeaderboard(leaderboard)
+  }
+
+  async function refreshAll(preferredChallengeId = null) {
+    setListState('loading')
+
+    const refreshedChallenges = await fetchAdminChallenges(user)
+    setChallenges(refreshedChallenges)
+    setListState('done')
+
+    const nextSelectedId =
+      preferredChallengeId ??
+      (selectedChallengeId && refreshedChallenges.some((challenge) => challenge.id === selectedChallengeId)
+        ? selectedChallengeId
+        : refreshedChallenges[0]?.id ?? null)
+
+    setSelectedChallengeId(nextSelectedId)
+    return nextSelectedId
+  }
 
   useEffect(() => {
     if (!isAuthenticated || !isAdmin || !user) {
@@ -231,21 +324,12 @@ function AdminChallengesPage() {
       setErrorMessage('')
 
       try {
-        const [details, stats, attempts, leaderboard] = await Promise.all([
-          fetchAdminChallengeDetails(selectedChallengeId, user),
-          fetchAdminChallengeStats(selectedChallengeId, user),
-          fetchAdminChallengeAttempts(selectedChallengeId, user),
-          fetchAdminChallengeLeaderboard(selectedChallengeId, user),
-        ])
+        await loadChallengeInsights(selectedChallengeId, () => active)
 
         if (!active) {
           return
         }
 
-        setSelectedChallenge(details)
-        setChallengeStats(stats)
-        setChallengeAttempts(attempts)
-        setChallengeLeaderboard(leaderboard)
         setDetailsState('done')
       } catch (error) {
         if (!active) {
@@ -447,6 +531,8 @@ function AdminChallengesPage() {
       questions: [createEmptyQuestion()],
     })
     setFormErrors({})
+    setIsEditMode(false)
+    setEditingChallengeId(null)
   }
 
   const resetFilters = () => {
@@ -457,18 +543,67 @@ function AdminChallengesPage() {
     setSortBy('newest')
   }
 
-  const refreshAll = async (preferredChallengeId = null) => {
-    const refreshedChallenges = await fetchAdminChallenges(user)
-    setChallenges(refreshedChallenges)
-    const nextSelectedId =
-      preferredChallengeId ??
-      (selectedChallengeId && refreshedChallenges.some((challenge) => challenge.id === selectedChallengeId)
-        ? selectedChallengeId
-        : refreshedChallenges[0]?.id ?? null)
-    setSelectedChallengeId(nextSelectedId)
+  const startEditingChallenge = () => {
+    if (!selectedChallenge) {
+      return
+    }
+
+    setFormData(mapChallengeToFormData(selectedChallenge))
+    setFormErrors({})
+    setErrorMessage('')
+    setSuccessMessage('')
+    setIsEditMode(true)
+    setEditingChallengeId(selectedChallenge.id)
   }
 
-  const handleCreateChallenge = async (event) => {
+  const cancelEditingChallenge = () => {
+    resetForm()
+    setErrorMessage('')
+    setSuccessMessage('')
+  }
+
+  async function syncChallengeQuestions(challengeId) {
+    for (let questionIndex = 0; questionIndex < formData.questions.length; questionIndex += 1) {
+      const question = formData.questions[questionIndex]
+      const stepPayload = {
+        questionText: question.questionText.trim(),
+        stepOrder: questionIndex + 1,
+        points: Number(question.points) || 1,
+      }
+
+      if (question.id) {
+        await updateAdminChallengeStep(challengeId, question.id, stepPayload, user)
+
+        for (let optionIndex = 0; optionIndex < question.options.length; optionIndex += 1) {
+          const option = question.options[optionIndex]
+          const optionPayload = {
+            optionText: option.optionText.trim(),
+            isCorrect: option.isCorrect,
+          }
+
+          if (option.id) {
+            await updateAdminChallengeOption(challengeId, question.id, option.id, optionPayload, user)
+          } else {
+            await addAdminChallengeOption(challengeId, question.id, optionPayload, user)
+          }
+        }
+      } else {
+        await addAdminChallengeStep(
+          challengeId,
+          {
+            ...stepPayload,
+            options: question.options.map((option) => ({
+              optionText: option.optionText.trim(),
+              isCorrect: option.isCorrect,
+            })),
+          },
+          user,
+        )
+      }
+    }
+  }
+
+  const handleSaveChallenge = async (event) => {
     event.preventDefault()
 
     const nextErrors = validateForm()
@@ -478,49 +613,95 @@ function AdminChallengesPage() {
       return
     }
 
-    setIsCreating(true)
+    setIsSubmitting(true)
     setErrorMessage('')
     setSuccessMessage('')
 
     try {
-      const createdChallenge = await createAdminChallenge(
-        {
-          title: formData.title.trim(),
-          description: formData.description.trim(),
-          category: formData.category.trim(),
-          difficulty: formData.difficulty,
-          pointsReward: Number(formData.pointsReward),
-          visibility: 'PUBLIC',
-          isActive: true,
-        },
-        user,
-      )
+      let targetChallengeId = editingChallengeId
 
-      for (let index = 0; index < formData.questions.length; index += 1) {
-        const question = formData.questions[index]
-
-        await addAdminChallengeStep(
-          createdChallenge.id,
-          {
-            questionText: question.questionText.trim(),
-            stepOrder: index + 1,
-            points: Number(question.points) || 1,
-            options: question.options.map((option) => ({
-              optionText: option.optionText.trim(),
-              isCorrect: option.isCorrect,
-            })),
-          },
+      if (isEditMode && editingChallengeId) {
+        await updateAdminChallenge(
+          editingChallengeId,
+          buildChallengePayload(formData, {
+            visibility: selectedChallenge?.visibility ?? 'PUBLIC',
+            isActive: selectedChallenge?.isActive ?? true,
+          }),
           user,
         )
+
+        await syncChallengeQuestions(editingChallengeId)
+        setSuccessMessage('Challenge updated successfully.')
+      } else {
+        const createdChallenge = await createAdminChallenge(
+          buildChallengePayload(formData, {
+            visibility: 'PUBLIC',
+            isActive: true,
+          }),
+          user,
+        )
+
+        targetChallengeId = createdChallenge.id
+        await syncChallengeQuestions(createdChallenge.id)
+        setSuccessMessage('Admin challenge created successfully and added to the management board.')
       }
 
-      await refreshAll(createdChallenge.id)
+      const nextSelectedId = await refreshAll(targetChallengeId)
+
+      if (nextSelectedId) {
+        setDetailsState('loading')
+        await loadChallengeInsights(nextSelectedId)
+        setDetailsState('done')
+      }
+
       resetForm()
-      setSuccessMessage('Admin challenge created successfully and added to the management board.')
     } catch (error) {
-      setErrorMessage(error.message || 'Unable to create the admin challenge.')
+      setErrorMessage(error.message || `Unable to ${isEditMode ? 'update' : 'create'} the admin challenge.`)
     } finally {
-      setIsCreating(false)
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteChallenge = async () => {
+    if (!selectedChallenge) {
+      return
+    }
+
+    const confirmed = window.confirm(`Soft delete "${selectedChallenge.title}" from the public catalog?`)
+
+    if (!confirmed) {
+      return
+    }
+
+    setIsSubmitting(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+
+    try {
+      await deleteAdminChallenge(selectedChallenge.id, user)
+      const nextSelectedId = await refreshAll()
+
+      if (nextSelectedId) {
+        setDetailsState('loading')
+        await loadChallengeInsights(nextSelectedId)
+        setDetailsState('done')
+      } else {
+        setSelectedChallenge(null)
+        setChallengeStats(null)
+        setChallengeAttempts([])
+        setChallengeLeaderboard([])
+        setDetailsState('idle')
+      }
+
+      if (editingChallengeId === selectedChallenge.id) {
+        resetForm()
+      }
+
+      setSuccessMessage('Challenge deleted from the active catalog.')
+    } catch (error) {
+      setErrorMessage(error.message || 'Unable to delete this challenge.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -559,6 +740,8 @@ function AdminChallengesPage() {
     )
   }
 
+  const selectedChallengeState = getChallengeAdminState(selectedChallenge)
+
   return (
     <section className="admin-page-shell">
       <div className="section-heading">
@@ -568,7 +751,10 @@ function AdminChallengesPage() {
             Admin Console
           </span>
           <h1>Admin Challenge Management</h1>
-          <p>Create QCM challenges, inspect challenge-level leaderboard data, and review who attempted each challenge with timing details.</p>
+          <p>
+            Create QCM challenges, manage the live catalog, and inspect leaderboard plus attempt analytics from a
+            single admin workspace.
+          </p>
         </div>
       </div>
 
@@ -617,12 +803,22 @@ function AdminChallengesPage() {
         <article className="surface-card admin-builder-panel">
           <div className="admin-panel-header">
             <div>
-              <span className="eyebrow">Builder</span>
-              <h2>Create a new admin challenge</h2>
+              <span className="eyebrow">{isEditMode ? 'Editor' : 'Builder'}</span>
+              <h2>{isEditMode ? 'Edit selected challenge' : 'Create a new admin challenge'}</h2>
+              <p className="muted-caption">
+                {isEditMode
+                  ? 'Update metadata, revise existing QCM content, and add new questions or options.'
+                  : 'Prepare a complete challenge with ordered questions and one correct answer per item.'}
+              </p>
             </div>
+            {isEditMode && (
+              <button className="button-ghost button-reset" type="button" onClick={cancelEditingChallenge}>
+                Cancel edit
+              </button>
+            )}
           </div>
 
-          <form className="form-grid" onSubmit={handleCreateChallenge} noValidate>
+          <form className="form-grid" onSubmit={handleSaveChallenge} noValidate>
             <div className={`field ${formErrors.title ? 'has-error' : ''}`}>
               <label htmlFor="admin-title">Title</label>
               <input
@@ -700,105 +896,127 @@ function AdminChallengesPage() {
 
             <div className="field">
               <label>Questions</label>
+              {isEditMode && (
+                <p className="muted-caption admin-editor-note">
+                  Existing questions and options can be edited and expanded here. Removing already saved items is not
+                  exposed by the current admin API.
+                </p>
+              )}
               <div className="admin-question-stack">
-                {formData.questions.map((question, questionIndex) => (
-                  <article className="admin-question-card" key={`admin-question-${questionIndex}`}>
-                    <div className="question-card-header">
-                      <div>
-                        <strong>Question {questionIndex + 1}</strong>
-                        <p className="muted-caption">Define the prompt, points, and options.</p>
+                {formData.questions.map((question, questionIndex) => {
+                  const isPersistedQuestion = Boolean(question.id)
+
+                  return (
+                    <article className="admin-question-card" key={`admin-question-${question.id ?? questionIndex}`}>
+                      <div className="question-card-header">
+                        <div>
+                          <strong>Question {questionIndex + 1}</strong>
+                          <p className="muted-caption">Define the prompt, points, and options.</p>
+                        </div>
+                        {formData.questions.length > 1 && !isPersistedQuestion && (
+                          <button
+                            className="button-ghost button-reset"
+                            type="button"
+                            onClick={() => removeQuestion(questionIndex)}
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
-                      {formData.questions.length > 1 && (
+
+                      <div className={`field ${formErrors[`question-${questionIndex}`] ? 'has-error' : ''}`}>
+                        <label>Question text</label>
+                        <textarea
+                          className="form-input form-textarea"
+                          value={question.questionText}
+                          onChange={(event) => handleQuestionChange(questionIndex, 'questionText', event.target.value)}
+                          placeholder="Write the challenge question."
+                        />
+                        {formErrors[`question-${questionIndex}`] && (
+                          <span className="field-error">{formErrors[`question-${questionIndex}`]}</span>
+                        )}
+                      </div>
+
+                      <div className={`field ${formErrors[`question-points-${questionIndex}`] ? 'has-error' : ''}`}>
+                        <label>Question points</label>
+                        <input
+                          className="form-input"
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={question.points}
+                          onChange={(event) => handleQuestionChange(questionIndex, 'points', event.target.value)}
+                        />
+                        {formErrors[`question-points-${questionIndex}`] && (
+                          <span className="field-error">{formErrors[`question-points-${questionIndex}`]}</span>
+                        )}
+                      </div>
+
+                      <div className={`field ${formErrors[`question-options-${questionIndex}`] ? 'has-error' : ''}`}>
+                        <label>Options</label>
+                        <div className="options-grid">
+                          {question.options.map((option, optionIndex) => {
+                            const isPersistedOption = Boolean(option.id)
+
+                            return (
+                              <div className="option-row" key={`admin-option-${option.id ?? `${questionIndex}-${optionIndex}`}`}>
+                                <label className="option-correct-toggle">
+                                  <input
+                                    className="option-selector"
+                                    type="radio"
+                                    name={`admin-correct-option-${questionIndex}`}
+                                    checked={option.isCorrect}
+                                    onChange={() => setCorrectOption(questionIndex, optionIndex)}
+                                  />
+                                  <span>Correct</span>
+                                </label>
+
+                                <div
+                                  className={`field option-input-field ${
+                                    formErrors[`option-${questionIndex}-${optionIndex}`] ? 'has-error' : ''
+                                  }`}
+                                >
+                                  <input
+                                    className="form-input"
+                                    type="text"
+                                    value={option.optionText}
+                                    onChange={(event) => handleOptionChange(questionIndex, optionIndex, event.target.value)}
+                                    placeholder={`Option ${optionIndex + 1}`}
+                                  />
+                                  {formErrors[`option-${questionIndex}-${optionIndex}`] && (
+                                    <span className="field-error">{formErrors[`option-${questionIndex}-${optionIndex}`]}</span>
+                                  )}
+                                </div>
+
+                                {question.options.length > 2 && !isPersistedOption && (
+                                  <button
+                                    className="button-ghost button-reset"
+                                    type="button"
+                                    onClick={() => removeOption(questionIndex, optionIndex)}
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {formErrors[`question-options-${questionIndex}`] && (
+                          <span className="field-error">{formErrors[`question-options-${questionIndex}`]}</span>
+                        )}
+
                         <button
-                          className="button-ghost button-reset"
+                          className="button-secondary button-reset"
                           type="button"
-                          onClick={() => removeQuestion(questionIndex)}
+                          onClick={() => addOption(questionIndex)}
                         >
-                          Remove
+                          Add option
                         </button>
-                      )}
-                    </div>
-
-                    <div className={`field ${formErrors[`question-${questionIndex}`] ? 'has-error' : ''}`}>
-                      <label>Question text</label>
-                      <textarea
-                        className="form-input form-textarea"
-                        value={question.questionText}
-                        onChange={(event) => handleQuestionChange(questionIndex, 'questionText', event.target.value)}
-                        placeholder="Write the challenge question."
-                      />
-                      {formErrors[`question-${questionIndex}`] && (
-                        <span className="field-error">{formErrors[`question-${questionIndex}`]}</span>
-                      )}
-                    </div>
-
-                    <div className={`field ${formErrors[`question-points-${questionIndex}`] ? 'has-error' : ''}`}>
-                      <label>Question points</label>
-                      <input
-                        className="form-input"
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={question.points}
-                        onChange={(event) => handleQuestionChange(questionIndex, 'points', event.target.value)}
-                      />
-                      {formErrors[`question-points-${questionIndex}`] && (
-                        <span className="field-error">{formErrors[`question-points-${questionIndex}`]}</span>
-                      )}
-                    </div>
-
-                    <div className={`field ${formErrors[`question-options-${questionIndex}`] ? 'has-error' : ''}`}>
-                      <label>Options</label>
-                      <div className="options-grid">
-                        {question.options.map((option, optionIndex) => (
-                          <div className="option-row" key={`admin-option-${questionIndex}-${optionIndex}`}>
-                            <label className="option-correct-toggle">
-                              <input
-                                className="option-selector"
-                                type="radio"
-                                name={`admin-correct-option-${questionIndex}`}
-                                checked={option.isCorrect}
-                                onChange={() => setCorrectOption(questionIndex, optionIndex)}
-                              />
-                              <span>Correct</span>
-                            </label>
-
-                            <div className={`field option-input-field ${formErrors[`option-${questionIndex}-${optionIndex}`] ? 'has-error' : ''}`}>
-                              <input
-                                className="form-input"
-                                type="text"
-                                value={option.optionText}
-                                onChange={(event) => handleOptionChange(questionIndex, optionIndex, event.target.value)}
-                                placeholder={`Option ${optionIndex + 1}`}
-                              />
-                              {formErrors[`option-${questionIndex}-${optionIndex}`] && (
-                                <span className="field-error">{formErrors[`option-${questionIndex}-${optionIndex}`]}</span>
-                              )}
-                            </div>
-
-                            {question.options.length > 2 && (
-                              <button
-                                className="button-ghost button-reset"
-                                type="button"
-                                onClick={() => removeOption(questionIndex, optionIndex)}
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        ))}
                       </div>
-
-                      {formErrors[`question-options-${questionIndex}`] && (
-                        <span className="field-error">{formErrors[`question-options-${questionIndex}`]}</span>
-                      )}
-
-                      <button className="button-secondary button-reset" type="button" onClick={() => addOption(questionIndex)}>
-                        Add option
-                      </button>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  )
+                })}
               </div>
 
               {formErrors.questions && <span className="field-error">{formErrors.questions}</span>}
@@ -809,8 +1027,8 @@ function AdminChallengesPage() {
             </div>
 
             <div className="details-actions">
-              <button className="button-primary" type="submit" disabled={isCreating}>
-                {isCreating ? 'Publishing...' : 'Create admin challenge'}
+              <button className="button-primary" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Saving...' : isEditMode ? 'Save challenge changes' : 'Create admin challenge'}
               </button>
             </div>
           </form>
@@ -881,7 +1099,7 @@ function AdminChallengesPage() {
               >
                 {adminStatusFilters.map((option) => (
                   <option key={option} value={option}>
-                    {option === 'ALL' ? 'All statuses' : option}
+                    {option === 'ALL' ? 'All states' : option.charAt(0) + option.slice(1).toLowerCase()}
                   </option>
                 ))}
               </select>
@@ -908,41 +1126,71 @@ function AdminChallengesPage() {
             )}
 
             <div className="admin-challenge-list">
-              {filteredChallenges.map((challenge) => (
-                <button
-                  key={challenge.id}
-                  className={`admin-challenge-list-item ${selectedChallengeId === challenge.id ? 'is-selected' : ''}`}
-                  type="button"
-                  onClick={() => setSelectedChallengeId(challenge.id)}
-                >
-                  <div className="admin-challenge-list-top">
-                    <strong>{challenge.title}</strong>
-                    <span className={`pill ${String(challenge.difficulty || '').toLowerCase()}`}>
-                      {challenge.difficulty}
-                    </span>
-                  </div>
-                  <p>{challenge.category}</p>
-                  <div className="meta-line">
-                    <span className="tag">{challenge.totalAttempts || 0} attempts</span>
-                    <span className="tag">{challenge.uniqueParticipants || 0} participants</span>
-                    <span className="tag">{challenge.isActive ? 'Active' : 'Inactive'}</span>
-                  </div>
-                </button>
-              ))}
+              {filteredChallenges.map((challenge) => {
+                const lifecycleState = getChallengeAdminState(challenge)
+
+                return (
+                  <button
+                    key={challenge.id}
+                    className={`admin-challenge-list-item ${selectedChallengeId === challenge.id ? 'is-selected' : ''}`}
+                    type="button"
+                    onClick={() => setSelectedChallengeId(challenge.id)}
+                  >
+                    <div className="admin-challenge-list-top">
+                      <strong>{challenge.title}</strong>
+                      <span className={`pill ${String(challenge.difficulty || '').toLowerCase()}`}>
+                        {challenge.difficulty}
+                      </span>
+                    </div>
+                    <p>{challenge.category}</p>
+                    <div className="meta-line">
+                      <span className={`tag moderation-tag ${lifecycleState.toLowerCase()}`}>{lifecycleState}</span>
+                      <span className="tag">{challenge.totalAttempts || 0} attempts</span>
+                      <span className="tag">{challenge.uniqueParticipants || 0} participants</span>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </article>
 
           <article className="surface-card admin-analytics-panel">
-            <div className="admin-panel-header">
+            <div className="admin-panel-header admin-analytics-header">
               <div>
                 <span className="eyebrow">Analytics</span>
                 <h2>{selectedChallenge?.title || 'Select a challenge'}</h2>
                 <p className="muted-caption">
                   {selectedChallenge
-                    ? `${selectedChallenge.category} • ${selectedChallenge.difficulty} • ${selectedChallenge.questions?.length || 0} steps`
+                    ? `${selectedChallenge.category} | ${selectedChallenge.difficulty} | ${
+                        selectedChallenge.questions?.length || 0
+                      } steps`
                     : 'Choose a challenge from the list to inspect leaderboard and attempts.'}
                 </p>
               </div>
+
+              {selectedChallenge && (
+                <div className="admin-moderation-actions">
+                  <span className={`tag moderation-tag ${selectedChallengeState.toLowerCase()}`}>
+                    {selectedChallengeState}
+                  </span>
+                  <button
+                    className="button-secondary button-reset"
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={startEditingChallenge}
+                  >
+                    Edit challenge
+                  </button>
+                  <button
+                    className="button-secondary button-reset admin-delete-button"
+                    type="button"
+                    disabled={isSubmitting || selectedChallengeState === 'DELETED'}
+                    onClick={handleDeleteChallenge}
+                  >
+                    Delete challenge
+                  </button>
+                </div>
+              )}
             </div>
 
             {detailsState === 'loading' && selectedChallengeId && (

@@ -35,6 +35,13 @@ public interface ChallengeAttemptRepository extends JpaRepository<ChallengeAttem
 
 	boolean existsByUser_IdAndChallenge_IdAndStatusIgnoreCase(Long userId, Long challengeId, String status);
 
+	boolean existsByUser_IdAndChallenge_IdAndStatusIgnoreCaseAndIdLessThan(
+			Long userId,
+			Long challengeId,
+			String status,
+			Long id
+	);
+
 	@Query("""
 			select count(distinct ca.challenge.id)
 			from ChallengeAttempt ca

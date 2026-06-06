@@ -257,16 +257,48 @@ public class GamificationService {
 	private List<RecentChallengeActivityResponse> mapRecentActivity(Long userId) {
 		return challengeAttemptRepository.findTop6ByUser_IdAndStatusIgnoreCaseOrderByCompletedAtDesc(userId, "COMPLETED")
 				.stream()
-				.map(attempt -> new RecentChallengeActivityResponse(
-						attempt.getId(),
-						attempt.getChallenge().getId(),
-						attempt.getChallenge().getTitle(),
-						attempt.getScore(),
-						resolveMaxScore(attempt.getChallenge()),
-						attempt.getCompletedAt(),
-						resolveOutcomeLabel(attempt)
-				))
+				.map(attempt -> {
+					int maxScore = resolveMaxScore(attempt.getChallenge());
+					return new RecentChallengeActivityResponse(
+							attempt.getId(),
+							attempt.getChallenge().getId(),
+							attempt.getChallenge().getTitle(),
+							attempt.getScore(),
+							maxScore,
+							attempt.getCompletedAt(),
+							attempt.getStatus(),
+							resolveXpEarned(attempt, maxScore),
+							resolveOutcomeLabel(attempt)
+					);
+				})
 				.toList();
+	}
+
+	private int resolveXpEarned(ChallengeAttempt attempt, int maxScore) {
+		if (attempt.getId() == null
+				|| attempt.getUser() == null
+				|| attempt.getUser().getId() == null
+				|| attempt.getChallenge() == null
+				|| attempt.getChallenge().getId() == null) {
+			return 0;
+		}
+
+		boolean earlierCompletionExists = challengeAttemptRepository.existsByUser_IdAndChallenge_IdAndStatusIgnoreCaseAndIdLessThan(
+				attempt.getUser().getId(),
+				attempt.getChallenge().getId(),
+				"COMPLETED",
+				attempt.getId()
+		);
+
+		if (earlierCompletionExists) {
+			return 0;
+		}
+
+		return calculateAwardedPoints(
+				attempt.getScore() == null ? 0 : attempt.getScore(),
+				maxScore,
+				attempt.getChallenge().getPointsReward()
+		);
 	}
 
 	private String resolveOutcomeLabel(ChallengeAttempt attempt) {

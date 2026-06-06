@@ -44,16 +44,16 @@ function BadgeCard({ badge }) {
   return (
     <article className={`badge-card ${tone}`}>
       <div className="badge-top">
-        <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
+        <div className="badge-heading">
           <span className="badge-icon" aria-hidden="true">
             {iconLabel}
           </span>
-          <div>
+          <div className="badge-heading-copy">
             <strong>{badge.title}</strong>
             <p className="muted-caption">{badge.badgeType || 'achievement'}</p>
           </div>
         </div>
-        <span className="tag">{badge.earned ? 'Unlocked' : 'Locked'}</span>
+        <span className="tag badge-state-tag">{badge.earned ? 'Unlocked' : 'Locked'}</span>
       </div>
       <p className="muted-caption">{badge.description}</p>
       {conditionLabel && <p className="muted-caption">{conditionLabel}</p>}

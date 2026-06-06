@@ -140,3 +140,4 @@ export async function fetchMyBadges(user) {
 
   return ensureArray(data).map(normalizeBadge)
 }
+

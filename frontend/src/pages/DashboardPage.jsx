@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AttemptHistoryTable from '../components/AttemptHistoryTable'
 import BadgeCard from '../components/BadgeCard'
 import LeaderboardTable from '../components/LeaderboardTable'
 import ProgressBar from '../components/ProgressBar'
@@ -291,29 +292,14 @@ function DashboardPage() {
         <article className="surface-card">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">Recent activity</span>
+              <span className="eyebrow">Attempt history</span>
               <h2>Latest completed challenges</h2>
-              <p>Your last finished attempts appear here with score and completion date.</p>
+              <p>Review challenge name, score, date, status, and XP earned for each recent attempt.</p>
             </div>
           </div>
 
           {gamification.recentActivity.length > 0 ? (
-            <div className="history-list">
-              {gamification.recentActivity.map((item) => (
-                <div className="history-item" key={item.attemptId}>
-                  <div>
-                    <strong>{item.challengeTitle}</strong>
-                    <p className="muted-caption">{formatDate(item.completedAt)}</p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <strong>{item.outcomeLabel}</strong>
-                    <p className="muted-caption">
-                      {item.score}/{item.maxScore}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <AttemptHistoryTable attempts={gamification.recentActivity} />
           ) : (
             <div className="empty-state">
               No completed challenges yet. Finish your first challenge to populate this feed.

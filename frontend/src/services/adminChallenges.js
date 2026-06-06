@@ -90,3 +90,62 @@ export async function addAdminChallengeStep(challengeId, payload, user) {
     'Unable to add challenge step',
   )
 }
+
+export async function updateAdminChallenge(challengeId, payload, user) {
+  return fetchAdminResource(
+    `/api/admin/challenges/${challengeId}`,
+    user,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+    'Unable to update challenge',
+  )
+}
+
+export async function updateAdminChallengeStep(challengeId, stepId, payload, user) {
+  return fetchAdminResource(
+    `/api/admin/challenges/${challengeId}/steps/${stepId}`,
+    user,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+    'Unable to update challenge step',
+  )
+}
+
+export async function addAdminChallengeOption(challengeId, stepId, payload, user) {
+  return fetchAdminResource(
+    `/api/admin/challenges/${challengeId}/steps/${stepId}/options`,
+    user,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    'Unable to add challenge option',
+  )
+}
+
+export async function updateAdminChallengeOption(challengeId, stepId, optionId, payload, user) {
+  return fetchAdminResource(
+    `/api/admin/challenges/${challengeId}/steps/${stepId}/options/${optionId}`,
+    user,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+    'Unable to update challenge option',
+  )
+}
+
+export async function deleteAdminChallenge(challengeId, user) {
+  return fetchAdminResource(
+    `/api/admin/challenges/${challengeId}`,
+    user,
+    {
+      method: 'DELETE',
+    },
+    'Unable to delete challenge',
+  )
+}

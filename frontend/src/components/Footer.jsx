@@ -8,11 +8,49 @@ const socialLinks = [
   { href: 'https://discord.com', label: 'Discord', icon: DiscordIcon },
 ]
 
+const exploreLinks = [
+  {
+    to: '/dashboard',
+    label: 'Dashboard',
+    description: 'See your streak, badges, and current momentum at a glance.',
+  },
+  {
+    to: '/challenges',
+    label: 'Challenges',
+    description: 'Browse public educational challenges and discover new topics.',
+  },
+  {
+    to: '/leaderboard',
+    label: 'Leaderboard',
+    description: 'Compare scores and follow the most active learners on the platform.',
+  },
+]
+
+const accountLinks = [
+  {
+    to: '/login',
+    label: 'Login',
+    description: 'Reconnect with your progress and continue your learning streak.',
+  },
+  {
+    to: '/register',
+    label: 'Register',
+    description: 'Create a profile and start collecting points through challenge play.',
+  },
+  {
+    to: '/profile',
+    label: 'Profile',
+    description: 'Manage your learner identity, stats, and recent achievements.',
+  },
+]
+
 function Footer() {
   return (
     <footer className="site-footer">
       <div className="site-footer-inner">
         <div className="footer-brand-column">
+          <span className="footer-brand-eyebrow">Learn. Challenge. Rise.</span>
+
           <Link className="footer-brand" to="/">
             <span className="footer-brand-mark">
               <img className="footer-brand-logo" src="/logo.png" alt="EduChallenge logo" />
@@ -30,10 +68,19 @@ function Footer() {
             and grow through healthy competition.
           </p>
 
+          <div className="footer-brand-highlights">
+            <span className="footer-highlight-pill">Interactive QCM</span>
+            <span className="footer-highlight-pill">Points and badges</span>
+            <span className="footer-highlight-pill">Friendly competition</span>
+          </div>
+
           <div className="footer-cta-inline">
             <div className="footer-cta-copy">
-              <p className="footer-cta-title">Ready to improve your skills?</p>
-              <p className="footer-cta-text">Create a challenge and start learning today.</p>
+              <span className="footer-cta-badge">Start a new learning loop</span>
+              <p className="footer-cta-title">Turn one topic into a challenge worth sharing.</p>
+              <p className="footer-cta-text">
+                Publish a challenge, invite learners to play, and build momentum through progress.
+              </p>
             </div>
             <Link className="button-primary footer-cta-link" to="/challenges/create">
               Create challenge
@@ -59,31 +106,25 @@ function Footer() {
 
         <div className="footer-column">
           <p className="footer-title">Explore</p>
-          <div className="footer-links">
-            <Link className="footer-link" to="/dashboard">
-              Dashboard
-            </Link>
-            <Link className="footer-link" to="/challenges">
-              Challenges
-            </Link>
-            <Link className="footer-link" to="/leaderboard">
-              Leaderboard
-            </Link>
+          <div className="footer-link-cards">
+            {exploreLinks.map((link) => (
+              <Link className="footer-link-card" key={link.to} to={link.to}>
+                <strong>{link.label}</strong>
+                <span>{link.description}</span>
+              </Link>
+            ))}
           </div>
         </div>
 
         <div className="footer-column">
           <p className="footer-title">Account</p>
-          <div className="footer-links">
-            <Link className="footer-link" to="/login">
-              Login
-            </Link>
-            <Link className="footer-link" to="/register">
-              Register
-            </Link>
-            <Link className="footer-link" to="/profile">
-              Profile
-            </Link>
+          <div className="footer-link-cards">
+            {accountLinks.map((link) => (
+              <Link className="footer-link-card" key={link.to} to={link.to}>
+                <strong>{link.label}</strong>
+                <span>{link.description}</span>
+              </Link>
+            ))}
           </div>
         </div>
       </div>

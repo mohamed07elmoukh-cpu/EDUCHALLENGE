@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import AttemptHistoryTable from '../components/AttemptHistoryTable'
 import BadgeCard from '../components/BadgeCard'
 import ProgressBar from '../components/ProgressBar'
 import { useAuth } from '../context/AuthContext'
@@ -207,7 +208,7 @@ function ProfilePage() {
         </article>
       </section>
 
-      <section className="dashboard-grid section">
+      <section className="dashboard-grid profile-badges-grid section">
         <article className="surface-card">
           <div className="section-heading">
             <div>
@@ -256,28 +257,13 @@ function ProfilePage() {
           <div className="section-heading">
             <div>
               <span className="eyebrow">Participation history</span>
-              <h2>Completed challenges</h2>
-              <p>Your latest scores and outcomes are shown here.</p>
+              <h2>Attempt history</h2>
+              <p>Challenge name, score, date, status, and XP earned for each recent completed attempt.</p>
             </div>
           </div>
 
           {gamification.recentActivity.length > 0 ? (
-            <div className="history-list">
-              {gamification.recentActivity.map((item) => (
-                <div className="history-item" key={item.attemptId}>
-                  <div>
-                    <strong>{item.challengeTitle}</strong>
-                    <p className="muted-caption">{formatDate(item.completedAt)}</p>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <strong>{item.outcomeLabel}</strong>
-                    <p className="muted-caption">
-                      {item.score}/{item.maxScore}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <AttemptHistoryTable attempts={gamification.recentActivity} />
           ) : (
             <div className="empty-state">
               No participation history yet. Complete challenges to build this timeline.

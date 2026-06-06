@@ -94,6 +94,38 @@ export function CloseIcon() {
   )
 }
 
+export function HeartIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 20.3l-1.4-1.3C5 14 2 11.2 2 7.8 2 5.1 4.1 3 6.8 3c1.5 0 2.9.7 3.8 1.9C11.3 3.7 12.7 3 14.2 3 16.9 3 19 5.1 19 7.8c0 3.4-3 6.2-8.6 11.2L12 20.3z" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function BookmarkIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 3.5A2.5 2.5 0 019.5 1h5A2.5 2.5 0 0117 3.5V21l-5-3.6L7 21V3.5z" fill="currentColor" />
+    </svg>
+  )
+}
+
+export function ShareIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M15 5a3 3 0 116 0 3 3 0 01-6 0zM3 13a3 3 0 116 0 3 3 0 01-6 0zm12 6a3 3 0 116 0 3 3 0 01-6 0zm-6.3-5.2l7.1-4.1m-7 4.6l7 3.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function CommentIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 5.5A2.5 2.5 0 017.5 3h9A2.5 2.5 0 0119 5.5v7a2.5 2.5 0 01-2.5 2.5H10l-4 3v-3H7.5A2.5 2.5 0 015 12.5v-7z" fill="currentColor" />
+    </svg>
+  )
+}
+
 export function GitHubIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">

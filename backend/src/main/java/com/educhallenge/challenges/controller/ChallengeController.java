@@ -1,9 +1,12 @@
 package com.educhallenge.challenges.controller;
 
 import com.educhallenge.backend.security.CurrentUser;
+import com.educhallenge.challenges.dto.ChallengeCommentResponse;
 import com.educhallenge.challenges.dto.ChallengeDetailsResponse;
 import com.educhallenge.challenges.dto.ChallengeAttemptResultResponse;
 import com.educhallenge.challenges.dto.ChallengeResponse;
+import com.educhallenge.challenges.dto.ChallengeSocialSummaryResponse;
+import com.educhallenge.challenges.dto.CreateChallengeCommentRequest;
 import com.educhallenge.challenges.dto.CreateChallengeRequest;
 import com.educhallenge.challenges.dto.MyChallengeResponse;
 import com.educhallenge.challenges.dto.SubmitChallengeAttemptRequest;
@@ -66,6 +69,39 @@ public class ChallengeController {
 			@CurrentUser User currentUser
 	) {
 		return ResponseEntity.ok(challengeService.submitChallengeAttempt(id, request, currentUser));
+	}
+
+	@PostMapping("/{id}/likes/toggle")
+	public ResponseEntity<ChallengeSocialSummaryResponse> toggleChallengeLike(
+			@PathVariable Long id,
+			@CurrentUser User currentUser
+	) {
+		return ResponseEntity.ok(challengeService.toggleChallengeLike(id, currentUser));
+	}
+
+	@PostMapping("/{id}/saves/toggle")
+	public ResponseEntity<ChallengeSocialSummaryResponse> toggleSavedChallenge(
+			@PathVariable Long id,
+			@CurrentUser User currentUser
+	) {
+		return ResponseEntity.ok(challengeService.toggleSavedChallenge(id, currentUser));
+	}
+
+	@PostMapping("/{id}/shares")
+	public ResponseEntity<ChallengeSocialSummaryResponse> registerChallengeShare(
+			@PathVariable Long id,
+			@CurrentUser User currentUser
+	) {
+		return ResponseEntity.ok(challengeService.registerChallengeShare(id, currentUser));
+	}
+
+	@PostMapping("/{id}/comments")
+	public ResponseEntity<ChallengeCommentResponse> addChallengeComment(
+			@PathVariable Long id,
+			@Valid @RequestBody CreateChallengeCommentRequest request,
+			@CurrentUser User currentUser
+	) {
+		return ResponseEntity.status(HttpStatus.CREATED).body(challengeService.addChallengeComment(id, request, currentUser));
 	}
 
 	@PutMapping("/{id}")

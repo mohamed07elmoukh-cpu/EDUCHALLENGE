@@ -16,6 +16,8 @@ public class ChallengeDetailsResponse {
 	private String visibility;
 	private Boolean isActive;
 	private LocalDateTime createdAt;
+	private ChallengeSocialSummaryResponse social;
+	private List<ChallengeCommentResponse> comments;
 	private List<QuestionResponse> questions;
 
 	public ChallengeDetailsResponse() {
@@ -33,6 +35,8 @@ public class ChallengeDetailsResponse {
 			String visibility,
 			Boolean isActive,
 			LocalDateTime createdAt,
+			ChallengeSocialSummaryResponse social,
+			List<ChallengeCommentResponse> comments,
 			List<QuestionResponse> questions
 	) {
 		this.id = id;
@@ -46,6 +50,8 @@ public class ChallengeDetailsResponse {
 		this.visibility = visibility;
 		this.isActive = isActive;
 		this.createdAt = createdAt;
+		this.social = social;
+		this.comments = comments;
 		this.questions = questions;
 	}
 
@@ -143,6 +149,22 @@ public class ChallengeDetailsResponse {
 
 	public void setQuestions(List<QuestionResponse> questions) {
 		this.questions = questions;
+	}
+
+	public ChallengeSocialSummaryResponse getSocial() {
+		return social;
+	}
+
+	public void setSocial(ChallengeSocialSummaryResponse social) {
+		this.social = social;
+	}
+
+	public List<ChallengeCommentResponse> getComments() {
+		return comments;
+	}
+
+	public void setComments(List<ChallengeCommentResponse> comments) {
+		this.comments = comments;
 	}
 
 	public static class QuestionResponse {

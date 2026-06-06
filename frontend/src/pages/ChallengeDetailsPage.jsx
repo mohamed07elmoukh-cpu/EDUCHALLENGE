@@ -1,8 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeftIcon } from '../components/Icons'
+import { ArrowLeftIcon, BookmarkIcon, CommentIcon, HeartIcon, ShareIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
-import { fetchChallengeById, submitChallengeAttempt } from '../services/challenges'
+import {
+  createChallengeComment,
+  fetchChallengeById,
+  shareChallenge,
+  submitChallengeAttempt,
+  toggleChallengeLike,
+  toggleSavedChallenge,
+} from '../services/challenges'
+
+function formatCommentDate(value) {
+  if (!value) {
+    return 'Just now'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleString()
+}
 
 function ChallengeDetailsPage() {
   const navigate = useNavigate()
@@ -16,6 +37,12 @@ function ChallengeDetailsPage() {
   const [submitState, setSubmitState] = useState('idle')
   const [submitError, setSubmitError] = useState('')
   const [attemptResult, setAttemptResult] = useState(null)
+  const [socialMessage, setSocialMessage] = useState('')
+  const [socialError, setSocialError] = useState('')
+  const [socialActionState, setSocialActionState] = useState('idle')
+  const [commentDraft, setCommentDraft] = useState('')
+  const [commentState, setCommentState] = useState('idle')
+  const [commentError, setCommentError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -47,9 +74,26 @@ function ChallengeDetailsPage() {
     setSubmitState('idle')
     setSubmitError('')
     setAttemptResult(null)
+    setSocialMessage('')
+    setSocialError('')
+    setSocialActionState('idle')
+    setCommentDraft('')
+    setCommentState('idle')
+    setCommentError('')
   }, [challengeId])
 
   const questions = Array.isArray(challenge?.questions) ? challenge.questions : []
+  const comments = Array.isArray(challenge?.comments) ? challenge.comments : []
+  const social = challenge?.social || {
+    likeCount: 0,
+    saveCount: 0,
+    shareCount: 0,
+    commentCount: 0,
+    likedByCurrentUser: false,
+    savedByCurrentUser: false,
+    completedByCurrentUser: false,
+    canComment: false,
+  }
   const hasQuestions = questions.length > 0
   const allQuestionsAnswered = hasQuestions && questions.every((question) => selectedAnswers[String(question.id)])
   const orderedQuestionIds = questions.map((question) => String(question.id))
@@ -140,6 +184,8 @@ function ChallengeDetailsPage() {
       setAttemptResult(result)
       setSubmitState('success')
       applyChallengeAttemptResult(result)
+      const refreshedChallenge = await fetchChallengeById(challenge.id, user)
+      setChallenge(refreshedChallenge)
     } catch (error) {
       setSubmitState('error')
       setSubmitError(error.message || 'Unable to submit your answers right now.')
@@ -169,6 +215,122 @@ function ChallengeDetailsPage() {
     setSubmitState('idle')
     setSubmitError('')
     setAttemptResult(null)
+    setSocialMessage('')
+  }
+
+  async function handleToggleLike() {
+    if (!challenge || socialActionState === 'submitting') {
+      return
+    }
+
+    setSocialActionState('submitting')
+    setSocialError('')
+    setSocialMessage('')
+
+    try {
+      const nextSocial = await toggleChallengeLike(challenge.id, user)
+      setChallenge((current) => (current ? { ...current, social: nextSocial } : current))
+    } catch (error) {
+      setSocialError(error.message || 'Unable to update this like right now.')
+    } finally {
+      setSocialActionState('idle')
+    }
+  }
+
+  async function handleToggleSave() {
+    if (!challenge || socialActionState === 'submitting') {
+      return
+    }
+
+    setSocialActionState('submitting')
+    setSocialError('')
+    setSocialMessage('')
+
+    try {
+      const nextSocial = await toggleSavedChallenge(challenge.id, user)
+      setChallenge((current) => (current ? { ...current, social: nextSocial } : current))
+      setSocialMessage(nextSocial.savedByCurrentUser ? 'Challenge saved to your list.' : 'Challenge removed from your saved list.')
+    } catch (error) {
+      setSocialError(error.message || 'Unable to update this saved challenge right now.')
+    } finally {
+      setSocialActionState('idle')
+    }
+  }
+
+  async function handleShareChallenge() {
+    if (!challenge || socialActionState === 'submitting') {
+      return
+    }
+
+    const shareUrl = `${window.location.origin}/challenges/${challenge.id}`
+    setSocialActionState('submitting')
+    setSocialError('')
+    setSocialMessage('')
+
+    try {
+      const nextSocial = await shareChallenge(challenge.id, user)
+      setChallenge((current) => (current ? { ...current, social: nextSocial } : current))
+
+      if (navigator.share) {
+        await navigator.share({
+          title: challenge.title,
+          text: `Try this EduChallenge challenge: ${challenge.title}`,
+          url: shareUrl,
+        })
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl)
+      }
+
+      setSocialMessage('Challenge link ready to share.')
+    } catch (error) {
+      setSocialError(error.message || 'Unable to share this challenge right now.')
+    } finally {
+      setSocialActionState('idle')
+    }
+  }
+
+  async function handlePublishComment() {
+    if (!challenge || !social.canComment || commentState === 'submitting') {
+      return
+    }
+
+    if (!commentDraft.trim()) {
+      setCommentError('Write a short comment before publishing.')
+      return
+    }
+
+    setCommentState('submitting')
+    setCommentError('')
+
+    try {
+      const createdComment = await createChallengeComment(
+        challenge.id,
+        { content: commentDraft.trim() },
+        user,
+      )
+
+      setChallenge((current) => {
+        if (!current) {
+          return current
+        }
+
+        return {
+          ...current,
+          comments: [createdComment, ...(Array.isArray(current.comments) ? current.comments : [])],
+          social: current.social
+            ? {
+                ...current.social,
+                commentCount: Number(current.social.commentCount || 0) + 1,
+              }
+            : current.social,
+        }
+      })
+      setCommentDraft('')
+      setCommentState('success')
+    } catch (error) {
+      setCommentState('error')
+      setCommentError(error.message || 'Unable to publish your comment.')
+    }
   }
 
   function resolveNextQuestionId(currentQuestionId, nextAnswers) {
@@ -251,6 +413,48 @@ function ChallengeDetailsPage() {
           <span className="pill">{challenge.category}</span>
           {challenge.visibility && <span className="pill">{challenge.visibility}</span>}
           {challenge.creatorUsername && <span className="pill">By {challenge.creatorUsername}</span>}
+        </div>
+
+        <div className="challenge-social-shell">
+          <div className="challenge-social-bar">
+            <button
+              className={`challenge-social-button ${social.likedByCurrentUser ? 'active' : ''}`}
+              type="button"
+              onClick={handleToggleLike}
+              disabled={socialActionState === 'submitting'}
+            >
+              <HeartIcon />
+              <span>Like</span>
+              <strong>{social.likeCount || 0}</strong>
+            </button>
+            <button
+              className={`challenge-social-button ${social.savedByCurrentUser ? 'active' : ''}`}
+              type="button"
+              onClick={handleToggleSave}
+              disabled={socialActionState === 'submitting'}
+            >
+              <BookmarkIcon />
+              <span>Save</span>
+              <strong>{social.saveCount || 0}</strong>
+            </button>
+            <button
+              className="challenge-social-button"
+              type="button"
+              onClick={handleShareChallenge}
+              disabled={socialActionState === 'submitting'}
+            >
+              <ShareIcon />
+              <span>Share</span>
+              <strong>{social.shareCount || 0}</strong>
+            </button>
+            <div className="challenge-social-stats">
+              <span className="pill">Comments {social.commentCount || 0}</span>
+              {social.completedByCurrentUser && <span className="pill easy">Completed</span>}
+            </div>
+          </div>
+
+          {socialMessage && <div className="success-banner">{socialMessage}</div>}
+          {socialError && <div className="error-banner">{socialError}</div>}
         </div>
 
         <div className="section-heading" style={{ marginTop: '2rem' }}>
@@ -406,6 +610,75 @@ function ChallengeDetailsPage() {
             {Object.keys(selectedAnswers).length}/{questions.length} question(s) answered. Use keys 1-9 for the active question, then press Enter to submit.
           </p>
         )}
+
+        <div className="challenge-comments-shell">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">
+                <CommentIcon />
+                Discussion
+              </span>
+              <h3>Challenge comments</h3>
+              <p>Light social feedback from learners who completed this challenge.</p>
+            </div>
+          </div>
+
+          <div className="challenge-comment-form">
+            <textarea
+              className="form-input form-textarea"
+              value={commentDraft}
+              onChange={(event) => {
+                setCommentDraft(event.target.value)
+                setCommentError('')
+              }}
+              placeholder={
+                social.canComment
+                  ? 'Share what you learned, what was tricky, or what you enjoyed.'
+                  : 'Complete this challenge first to unlock comments.'
+              }
+              disabled={!social.canComment || commentState === 'submitting'}
+            />
+
+            <div className="comment-form-footer">
+              <p className="muted-caption">
+                {social.canComment
+                  ? 'Comments are reserved for users who completed the challenge.'
+                  : 'You can comment after at least one completed attempt.'}
+              </p>
+              <button
+                className="button-primary"
+                type="button"
+                onClick={handlePublishComment}
+                disabled={!social.canComment || commentState === 'submitting'}
+              >
+                {commentState === 'submitting' ? 'Publishing...' : 'Post comment'}
+              </button>
+            </div>
+
+            {commentError && <div className="error-banner">{commentError}</div>}
+          </div>
+
+          <div className="challenge-comments-list">
+            {comments.length === 0 ? (
+              <div className="empty-state compact">
+                No comments yet. Finish the challenge and start the discussion.
+              </div>
+            ) : (
+              comments.map((comment) => (
+                <article className="challenge-comment-card" key={comment.id}>
+                  <div className="challenge-comment-top">
+                    <div>
+                      <strong>{comment.authorUsername}</strong>
+                      <p>{comment.authorEmail}</p>
+                    </div>
+                    <span className="pill">{formatCommentDate(comment.createdAt)}</span>
+                  </div>
+                  <p className="challenge-comment-content">{comment.content}</p>
+                </article>
+              ))
+            )}
+          </div>
+        </div>
       </article>
 
       <article className="surface-card">

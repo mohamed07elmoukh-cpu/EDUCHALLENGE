@@ -17,6 +17,8 @@ function normalizeBackendChallenge(challenge) {
     participants: challenge.participants || 0,
     status: challenge.status || challenge.visibility || 'Created',
     questions: Array.isArray(challenge.questions) ? challenge.questions : [],
+    comments: Array.isArray(challenge.comments) ? challenge.comments : [],
+    social: challenge.social || null,
   }
 }
 
@@ -126,4 +128,54 @@ export async function deleteChallenge(challengeId, user) {
     error.status = response.status
     throw error
   }
+}
+
+async function parseChallengeMutationResponse(response, fallbackMessage) {
+  const data = await parseResponse(response)
+
+  if (!response.ok) {
+    const error = new Error(data?.message || fallbackMessage)
+    error.status = response.status
+    error.fieldErrors = data?.fieldErrors || {}
+    throw error
+  }
+
+  return data
+}
+
+export async function toggleChallengeLike(challengeId, user) {
+  const response = await fetch(`${API_BASE_URL}/api/challenges/${challengeId}/likes/toggle`, {
+    method: 'POST',
+    headers: buildAuthHeaders(user),
+  })
+
+  return parseChallengeMutationResponse(response, 'Unable to update challenge like')
+}
+
+export async function toggleSavedChallenge(challengeId, user) {
+  const response = await fetch(`${API_BASE_URL}/api/challenges/${challengeId}/saves/toggle`, {
+    method: 'POST',
+    headers: buildAuthHeaders(user),
+  })
+
+  return parseChallengeMutationResponse(response, 'Unable to update saved challenge')
+}
+
+export async function shareChallenge(challengeId, user) {
+  const response = await fetch(`${API_BASE_URL}/api/challenges/${challengeId}/shares`, {
+    method: 'POST',
+    headers: buildAuthHeaders(user),
+  })
+
+  return parseChallengeMutationResponse(response, 'Unable to register challenge share')
+}
+
+export async function createChallengeComment(challengeId, payload, user) {
+  const response = await fetch(`${API_BASE_URL}/api/challenges/${challengeId}/comments`, {
+    method: 'POST',
+    headers: buildAuthHeaders(user, { includeJson: true }),
+    body: JSON.stringify(payload),
+  })
+
+  return parseChallengeMutationResponse(response, 'Unable to publish comment')
 }

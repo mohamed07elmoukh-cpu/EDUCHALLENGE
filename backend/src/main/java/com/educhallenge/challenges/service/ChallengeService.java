@@ -1,8 +1,11 @@
 package com.educhallenge.challenges.service;
 
 import com.educhallenge.challenges.dto.ChallengeDetailsResponse;
+import com.educhallenge.challenges.dto.ChallengeCommentResponse;
 import com.educhallenge.challenges.dto.ChallengeAttemptResultResponse;
 import com.educhallenge.challenges.dto.ChallengeResponse;
+import com.educhallenge.challenges.dto.ChallengeSocialSummaryResponse;
+import com.educhallenge.challenges.dto.CreateChallengeCommentRequest;
 import com.educhallenge.challenges.dto.CreateChallengeRequest;
 import com.educhallenge.challenges.dto.MyChallengeResponse;
 import com.educhallenge.challenges.dto.SubmitChallengeAttemptRequest;
@@ -10,9 +13,17 @@ import com.educhallenge.challenges.entity.Challenge;
 import com.educhallenge.challenges.entity.ChallengeAttempt;
 import com.educhallenge.challenges.entity.ChallengeStep;
 import com.educhallenge.challenges.entity.AttemptAnswer;
+import com.educhallenge.challenges.entity.ChallengeComment;
+import com.educhallenge.challenges.entity.ChallengeLike;
+import com.educhallenge.challenges.entity.ChallengeShare;
+import com.educhallenge.challenges.entity.SavedChallenge;
 import com.educhallenge.challenges.entity.StepOption;
 import com.educhallenge.challenges.repository.ChallengeAttemptRepository;
+import com.educhallenge.challenges.repository.ChallengeCommentRepository;
+import com.educhallenge.challenges.repository.ChallengeLikeRepository;
 import com.educhallenge.challenges.repository.ChallengeRepository;
+import com.educhallenge.challenges.repository.ChallengeShareRepository;
+import com.educhallenge.challenges.repository.SavedChallengeRepository;
 import com.educhallenge.gamification.service.GamificationService;
 import com.educhallenge.users.entity.User;
 import com.educhallenge.users.repository.UserRepository;
@@ -39,17 +50,29 @@ public class ChallengeService {
 
 	private final ChallengeRepository challengeRepository;
 	private final ChallengeAttemptRepository challengeAttemptRepository;
+	private final ChallengeLikeRepository challengeLikeRepository;
+	private final SavedChallengeRepository savedChallengeRepository;
+	private final ChallengeShareRepository challengeShareRepository;
+	private final ChallengeCommentRepository challengeCommentRepository;
 	private final UserRepository userRepository;
 	private final GamificationService gamificationService;
 
 	public ChallengeService(
 			ChallengeRepository challengeRepository,
 			ChallengeAttemptRepository challengeAttemptRepository,
+			ChallengeLikeRepository challengeLikeRepository,
+			SavedChallengeRepository savedChallengeRepository,
+			ChallengeShareRepository challengeShareRepository,
+			ChallengeCommentRepository challengeCommentRepository,
 			UserRepository userRepository,
 			GamificationService gamificationService
 	) {
 		this.challengeRepository = challengeRepository;
 		this.challengeAttemptRepository = challengeAttemptRepository;
+		this.challengeLikeRepository = challengeLikeRepository;
+		this.savedChallengeRepository = savedChallengeRepository;
+		this.challengeShareRepository = challengeShareRepository;
+		this.challengeCommentRepository = challengeCommentRepository;
 		this.userRepository = userRepository;
 		this.gamificationService = gamificationService;
 	}
@@ -64,7 +87,7 @@ public class ChallengeService {
 		challenge.setSteps(buildSteps(request.getQuestions()));
 
 		Challenge savedChallenge = challengeRepository.save(challenge);
-		return mapToDetailsResponse(savedChallenge, true);
+		return mapToDetailsResponse(savedChallenge, true, managedCurrentUser);
 	}
 
 	@Transactional(readOnly = true)
@@ -103,7 +126,7 @@ public class ChallengeService {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to view this challenge");
 		}
 
-		return mapToDetailsResponse(challenge, canManageChallenge(currentUser, challenge));
+		return mapToDetailsResponse(challenge, canManageChallenge(currentUser, challenge), currentUser);
 	}
 
 	public ChallengeAttemptResultResponse submitChallengeAttempt(
@@ -171,6 +194,82 @@ public class ChallengeService {
 		);
 	}
 
+	public ChallengeSocialSummaryResponse toggleChallengeLike(Long challengeId, User currentUser) {
+		User managedCurrentUser = getManagedUser(currentUser);
+		Challenge challenge = getDetailedChallenge(challengeId);
+		assertCanViewChallenge(managedCurrentUser, challenge);
+
+		challengeLikeRepository.findByChallenge_IdAndUser_Id(challengeId, managedCurrentUser.getId())
+				.ifPresentOrElse(
+						challengeLikeRepository::delete,
+						() -> {
+							ChallengeLike challengeLike = new ChallengeLike();
+							challengeLike.setChallenge(challenge);
+							challengeLike.setUser(managedCurrentUser);
+							challengeLikeRepository.save(challengeLike);
+						}
+				);
+
+		return buildSocialSummary(challengeId, managedCurrentUser);
+	}
+
+	public ChallengeSocialSummaryResponse toggleSavedChallenge(Long challengeId, User currentUser) {
+		User managedCurrentUser = getManagedUser(currentUser);
+		Challenge challenge = getDetailedChallenge(challengeId);
+		assertCanViewChallenge(managedCurrentUser, challenge);
+
+		savedChallengeRepository.findByChallenge_IdAndUser_Id(challengeId, managedCurrentUser.getId())
+				.ifPresentOrElse(
+						savedChallengeRepository::delete,
+						() -> {
+							SavedChallenge savedChallenge = new SavedChallenge();
+							savedChallenge.setChallenge(challenge);
+							savedChallenge.setUser(managedCurrentUser);
+							savedChallengeRepository.save(savedChallenge);
+						}
+				);
+
+		return buildSocialSummary(challengeId, managedCurrentUser);
+	}
+
+	public ChallengeSocialSummaryResponse registerChallengeShare(Long challengeId, User currentUser) {
+		User managedCurrentUser = getManagedUser(currentUser);
+		Challenge challenge = getDetailedChallenge(challengeId);
+		assertCanViewChallenge(managedCurrentUser, challenge);
+
+		ChallengeShare challengeShare = new ChallengeShare();
+		challengeShare.setChallenge(challenge);
+		challengeShare.setUser(managedCurrentUser);
+		challengeShareRepository.save(challengeShare);
+
+		return buildSocialSummary(challengeId, managedCurrentUser);
+	}
+
+	public ChallengeCommentResponse addChallengeComment(
+			Long challengeId,
+			CreateChallengeCommentRequest request,
+			User currentUser
+	) {
+		User managedCurrentUser = getManagedUser(currentUser);
+		Challenge challenge = getDetailedChallenge(challengeId);
+		assertCanViewChallenge(managedCurrentUser, challenge);
+
+		if (!hasCompletedChallenge(managedCurrentUser.getId(), challengeId)) {
+			throw new ResponseStatusException(
+					HttpStatus.FORBIDDEN,
+					"Complete the challenge before posting a comment"
+			);
+		}
+
+		ChallengeComment comment = new ChallengeComment();
+		comment.setChallenge(challenge);
+		comment.setUser(managedCurrentUser);
+		comment.setContent(request.getContent().trim());
+
+		ChallengeComment savedComment = challengeCommentRepository.save(comment);
+		return mapToCommentResponse(savedComment);
+	}
+
 	public ChallengeDetailsResponse updateChallenge(Long id, CreateChallengeRequest request, User currentUser) {
 		validateQuestions(request.getQuestions());
 
@@ -189,7 +288,7 @@ public class ChallengeService {
 		challenge.setSteps(replacementSteps);
 
 		Challenge updatedChallenge = challengeRepository.save(challenge);
-		return mapToDetailsResponse(updatedChallenge, true);
+		return mapToDetailsResponse(updatedChallenge, true, getManagedUser(currentUser));
 	}
 
 	public void deleteChallenge(Long id, User currentUser) {
@@ -455,6 +554,12 @@ public class ChallengeService {
 		return isPubliclyVisible(challenge) || canManageChallenge(currentUser, challenge);
 	}
 
+	private void assertCanViewChallenge(User currentUser, Challenge challenge) {
+		if (!canViewChallenge(currentUser, challenge)) {
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to view this challenge");
+		}
+	}
+
 	private boolean isPubliclyVisible(Challenge challenge) {
 		return Boolean.TRUE.equals(challenge.getIsActive())
 				&& "PUBLIC".equalsIgnoreCase(challenge.getVisibility());
@@ -501,7 +606,7 @@ public class ChallengeService {
 		);
 	}
 
-	private ChallengeDetailsResponse mapToDetailsResponse(Challenge challenge, boolean includeCorrectAnswers) {
+	private ChallengeDetailsResponse mapToDetailsResponse(Challenge challenge, boolean includeCorrectAnswers, User currentUser) {
 		List<ChallengeDetailsResponse.QuestionResponse> questions = challenge.getSteps()
 				.stream()
 				.map(step -> new ChallengeDetailsResponse.QuestionResponse(
@@ -520,6 +625,13 @@ public class ChallengeService {
 				))
 				.toList();
 
+		List<ChallengeCommentResponse> comments = challengeCommentRepository.findByChallenge_IdOrderByCreatedAtDesc(challenge.getId())
+				.stream()
+				.map(this::mapToCommentResponse)
+				.toList();
+
+		ChallengeSocialSummaryResponse social = buildSocialSummary(challenge.getId(), currentUser);
+
 		return new ChallengeDetailsResponse(
 				challenge.getId(),
 				challenge.getTitle(),
@@ -532,7 +644,41 @@ public class ChallengeService {
 				challenge.getVisibility(),
 				challenge.getIsActive(),
 				challenge.getCreatedAt(),
+				social,
+				comments,
 				questions
+		);
+	}
+
+	private ChallengeSocialSummaryResponse buildSocialSummary(Long challengeId, User currentUser) {
+		Long currentUserId = currentUser != null ? currentUser.getId() : null;
+		boolean completedByCurrentUser = currentUserId != null && hasCompletedChallenge(currentUserId, challengeId);
+
+		return new ChallengeSocialSummaryResponse(
+				challengeLikeRepository.countByChallenge_Id(challengeId),
+				savedChallengeRepository.countByChallenge_Id(challengeId),
+				challengeShareRepository.countByChallenge_Id(challengeId),
+				challengeCommentRepository.countByChallenge_Id(challengeId),
+				currentUserId != null && challengeLikeRepository.existsByChallenge_IdAndUser_Id(challengeId, currentUserId),
+				currentUserId != null && savedChallengeRepository.existsByChallenge_IdAndUser_Id(challengeId, currentUserId),
+				completedByCurrentUser,
+				completedByCurrentUser
+		);
+	}
+
+	private boolean hasCompletedChallenge(Long userId, Long challengeId) {
+		return challengeAttemptRepository.existsByUser_IdAndChallenge_IdAndStatusIgnoreCase(userId, challengeId, "COMPLETED");
+	}
+
+	private ChallengeCommentResponse mapToCommentResponse(ChallengeComment comment) {
+		return new ChallengeCommentResponse(
+				comment.getId(),
+				comment.getUser() != null ? comment.getUser().getId() : null,
+				comment.getUser() != null ? comment.getUser().getUsername() : null,
+				comment.getUser() != null ? comment.getUser().getEmail() : null,
+				comment.getContent(),
+				comment.getCreatedAt(),
+				comment.getUpdatedAt()
 		);
 	}
 

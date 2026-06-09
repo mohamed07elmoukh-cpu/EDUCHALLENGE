@@ -1,0 +1,9 @@
+aws_region              = "us-east-1"
+project_name            = "educhallenge"
+environment             = "dev"
+instance_type           = "t3.micro"
+key_pair_name           = "educhallenge-key"
+allowed_ssh_cidr        = "0.0.0.0/0"
+frontend_port           = 80
+backend_port            = 8080
+create_ecr_repositories = true

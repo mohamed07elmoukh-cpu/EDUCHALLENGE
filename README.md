@@ -2,7 +2,7 @@
 
 Plateforme sociale de defis educatifs gamifies.
 
-EduChallenge est une application interactive qui encourage les jeunes a apprendre a travers des defis, des quiz et des mecanismes de progression. La plateforme combine apprentissage, participation sociale et competition amicale pour rendre l'experience plus motivante.
+EduChallenge est une application web qui encourage l'apprentissage par des defis, des quiz et des mecanismes de progression. Le produit combine participation sociale, competition amicale et gamification.
 
 Le coeur du produit suit une boucle simple :
 
@@ -14,74 +14,30 @@ EduChallenge transforme l'apprentissage en experience communautaire. Un utilisat
 
 ## Fonctionnalites principales
 
-- Creation de defis educatifs par les utilisateurs
-- Participation aux defis d'autres utilisateurs
-- Gestion de tentatives et reponses QCM
+- Inscription et connexion utilisateur
+- Creation de defis educatifs
+- Participation a des defis QCM
+- Gestion des tentatives et des reponses
 - Attribution de points, niveaux et badges
-- Classements et suivi de progression
-- Notifications d'activite et de recompenses
-- Gestion des utilisateurs et de la securite de base
+- Leaderboard et suivi de progression
+- Notifications d'activite
+- Role `ADMIN` deja present au backend
 
-## Acteurs principaux
-
-### Student / User
-
-Le `Student` ou `User` est l'acteur central de la plateforme. Il utilise EduChallenge comme un espace d'apprentissage interactif, social et stimulant.
-
-Ses objectifs principaux :
-
-- apprendre via des defis educatifs
-- participer a une communaute active
-- se mesurer aux autres de maniere positive
-- suivre sa progression et ses accomplissements
-- rester motive grace a la gamification
-
-Actions typiques :
-
-- s'inscrire et se connecter
-- creer un defi
-- consulter et tenter des defis
-- repondre a des questions QCM
-- gagner des points et des badges
-- suivre son rang dans le leaderboard
-
-### Administrator
-
-L'`Administrator` supervise l'ensemble de la plateforme afin de garantir un environnement sain, fiable et coherent.
-
-Responsabilites principales :
-
-- maintenir le bon fonctionnement global du systeme
-- assurer la qualite du contenu
-- faire respecter les regles de la communaute
-- intervenir sur les defis lorsque necessaire
-- garantir la stabilite et la securite de la plateforme
-
-Dans l'etat actuel du projet, le role `ADMIN` existe deja au niveau backend pour certaines operations de gestion des defis.
-
-## Parcours fonctionnel
-
-1. Un utilisateur apprend ou maitrise un sujet.
-2. Il transforme ce savoir en defi educatif.
-3. D'autres utilisateurs participent a ce defi.
-4. Les participants gagnent des points, badges ou progression.
-5. Ces recompenses renforcent la motivation et encouragent une nouvelle participation.
-
-## Architecture actuelle
+## Architecture applicative
 
 Le depot est organise en deux parties principales :
 
 - `frontend/` : interface web en `React 19` avec `Vite`
-- `backend/` : API en `Spring Boot`, `Java 21`, `Spring Data JPA` et `PostgreSQL`
+- `backend/` : API `Spring Boot`, `Java 21`, `Spring Data JPA` et `PostgreSQL`
 
 Modules metier deja presents dans le code :
 
-- `auth` : inscription et connexion
-- `users` : profil utilisateur, role, niveau, points, streak
-- `challenges` : creation, consultation, details et tentatives
-- `gamification` : leaderboard, badges, notifications, activite recente
+- `auth` : inscription, connexion, JWT
+- `users` : profil, role, niveau, points
+- `challenges` : creation, consultation, tentatives
+- `gamification` : leaderboard, badges, activite recente
 
-## Modele de donnees metier
+## Modele de donnees
 
 Le backend couvre deja les concepts essentiels de la plateforme :
 
@@ -95,38 +51,61 @@ Le backend couvre deja les concepts essentiels de la plateforme :
 - `user_badges`
 - `notifications`
 
-Le script SQL [backend/sql/2026-04-19_add_qcm_tables.sql](backend/sql/2026-04-19_add_qcm_tables.sql) etend la plateforme vers un modele QCM complet pour les defis.
+Le script SQL [backend/sql/2026-04-19_add_qcm_tables.sql](backend/sql/2026-04-19_add_qcm_tables.sql) etend la plateforme vers un modele QCM complet.
 
-## Demarrage rapide
+## Stack technique
 
-### Base de donnees
+- Frontend : `React 19`, `Vite`, `Nginx`
+- Backend : `Spring Boot`, `Java 21`, `Maven`
+- Base de donnees : `PostgreSQL 16`
+- Conteneurisation : `Docker`, `Docker Compose`
+- Orchestration : `Kubernetes`
+- CI/CD : `GitHub Actions` + `GHCR`
+- Monitoring : `Prometheus` + `Grafana`
+- IaC : `Terraform` sur `AWS`
 
-Le projet fournit un `docker-compose.yml` avec PostgreSQL :
+## Demarrage local
+
+### 1. Base de donnees et monitoring
+
+Le projet fournit un `docker-compose.yml` avec :
+
+- `postgres`
+- `prometheus`
+- `grafana`
+
+Commande :
 
 ```bash
 docker compose up -d
 ```
 
-Configuration actuelle :
+Configuration actuelle PostgreSQL :
 
 - base : `educhallenge`
 - utilisateur : `postgres`
 - mot de passe : `1234`
 - port hote : `5433`
 
-### Backend
+Acces monitoring :
+
+- Prometheus : `http://localhost:9090`
+- Grafana : `http://localhost:3000`
+- identifiants Grafana par defaut : `admin / admin`
+
+### 2. Backend
 
 ```bash
 cd backend
 ./mvnw spring-boot:run
 ```
 
-Le backend utilise par defaut :
+Configuration backend par defaut :
 
-- `jdbc:postgresql://localhost:5433/educhallenge`
-- port HTTP par defaut de Spring Boot : `8080`
+- URL BDD : `jdbc:postgresql://localhost:5433/educhallenge`
+- port : `8080`
 
-### Frontend
+### 3. Frontend
 
 ```bash
 cd frontend
@@ -134,9 +113,109 @@ npm install
 npm run dev
 ```
 
-L'API frontend pointe par defaut vers :
+Acces frontend local :
 
-- `http://localhost:8080`
+- application : `http://localhost:5173`
+
+## Kubernetes
+
+Les manifests Kubernetes sont dans `k8s/` :
+
+- `namespace.yaml`
+- `postgres.yaml`
+- `postgres-pvc.yaml`
+- `backend-configmap.yaml`
+- `backend.yaml`
+- `frontend.yaml`
+- `ingress.yaml`
+
+### Deploiement manuel
+
+```powershell
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/backend-configmap.yaml
+kubectl apply -f k8s/postgres-pvc.yaml
+kubectl apply -f k8s/postgres.yaml
+kubectl apply -f k8s/backend.yaml
+kubectl apply -f k8s/frontend.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+### Preparation rapide pour la demo
+
+Le script [scripts/prepare-k8s-demo.ps1](scripts/prepare-k8s-demo.ps1) reprepare l'environnement Kubernetes pour une demonstration locale. Il :
+
+- relance PostgreSQL via Docker Compose
+- reapplique le namespace, les secrets et les manifests
+- pointe le backend Kubernetes vers la base Docker Compose deja remplie
+- met a jour les images frontend/backend
+- redemarre le backend et attend le rollout
+
+Commande :
+
+```powershell
+.\scripts\prepare-k8s-demo.ps1
+```
+
+Derniere etape pour ouvrir l'application :
+
+```powershell
+kubectl -n educhallenge port-forward service/frontend-service 5173:80
+```
+
+Puis ouvrir :
+
+```text
+http://localhost:5173
+```
+
+## Monitoring
+
+Le dossier `monitoring/` contient :
+
+- la configuration `Prometheus`
+- le provisioning `Grafana`
+- les dashboards JSON
+
+Le backend expose aussi les metriques Spring Boot / Prometheus via :
+
+```text
+/actuator/prometheus
+```
+
+## CI/CD
+
+Le workflow GitHub Actions est dans [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml).
+
+Pipeline actuel :
+
+1. tests backend Maven
+2. build frontend
+3. build et push des images Docker vers `GHCR`
+4. deploiement Kubernetes sur runner `self-hosted`
+
+Les images publiees sont :
+
+- `ghcr.io/<owner>/educhallenge-backend:latest`
+- `ghcr.io/<owner>/educhallenge-frontend:latest`
+
+## Infrastructure as Code
+
+Une couche Terraform simple basee sur AWS est disponible dans `terraform/`.
+
+Cette stack cree :
+
+- un `VPC`
+- deux `subnets` publics
+- une `Internet Gateway`
+- une `EC2`
+- un `security group`
+- un role IAM + instance profile
+- deux repositories `ECR`
+
+Reference :
+
+- [terraform/README.md](terraform/README.md)
 
 ## Objectif produit
 

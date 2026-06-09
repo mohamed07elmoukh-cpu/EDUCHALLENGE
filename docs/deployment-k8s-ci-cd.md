@@ -112,3 +112,26 @@ Sur `push` vers `main` :
 - Les images `ghcr.io` doivent etre publiques, ou bien le cluster doit disposer d'un `imagePullSecret`.
 - Le manifest `k8s/backend.yaml` contient une image placeholder ; le pipeline la remplace avec l'image du commit courant.
 - `postgres` dans Kubernetes convient pour dev, demo ou petit environnement. En production, preferer une base geree.
+
+## Restauration rapide pour la demo locale
+
+Sur `docker-desktop`, le cluster Kubernetes local peut etre recree ou perdre son etat. Pour remettre rapidement l'application en etat de demo sans retaper toutes les commandes, utiliser :
+
+```powershell
+.\scripts\prepare-k8s-demo.ps1
+```
+
+Ce script :
+
+- demarre `postgres` via `docker compose`
+- recree le namespace et les secrets
+- reconfigure le backend K8s pour utiliser la base PostgreSQL Docker Compose deja remplie
+- reapplique les manifests `backend` et `frontend`
+- remet les images `ghcr.io`
+- attend que les pods applicatifs soient `Running`
+
+Une fois le script termine, il ne reste qu'a lancer :
+
+```powershell
+kubectl -n educhallenge port-forward service/frontend-service 5173:80
+```
